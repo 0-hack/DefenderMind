@@ -1,6 +1,6 @@
-# Defender Zone
+# Defender Mind
 
-Defender Zone is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
+Defender Mind is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
 
 ## Overview
 
@@ -8,7 +8,7 @@ This application provides a visually engaging way to display, manage, and respon
 
 ## Quick Start with Docker
 
-The easiest way to run Defender Zone is using Docker Compose, which handles all dependencies automatically.
+The easiest way to run Defender Mind is using Docker Compose, which handles all dependencies automatically.
 
 ### Prerequisites
 
