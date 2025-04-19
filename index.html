@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <title>Defender Zone</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Load Three.js before other scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <!-- Script for initialization coordination -->
+  <script>
+    // Create global object to track initialization status
+    window.DefenderZone = {
+      initialized: false,
+      ready: false
+    };
+    
+    // Helper to ensure scripts load in correct order
+    window.waitForDependency = function(check, callback, maxAttempts = 20) {
+      if (check()) {
+        callback();
+      } else if (maxAttempts > 0) {
+        setTimeout(function() { 
+          window.waitForDependency(check, callback, maxAttempts - 1); 
+        }, 100);
+      } else {
+        console.error("Dependency not available after multiple attempts");
+      }
+    };
+    
+    // Check for query parameters - hideConfig
+    const params = new URLSearchParams(window.location.search);
+    const hideConfig = params.get('hideConfig') === 'true';
+    
+    // Display information on how to re-enable configuration
+    if (hideConfig) {
+      // Create a help element only visible initially
+      document.addEventListener('DOMContentLoaded', function() {
+        const helpInfo = document.createElement('div');
+        helpInfo.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 20px;
+          background: rgba(0,20,50,0.8);
+          color: #66ccff;
+          padding: 10px 15px;
+          border-radius: 8px;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          z-index: 9000;
+          border: 1px solid rgba(0,100,200,0.4);
+          box-shadow: 0 0 15px rgba(0,100,255,0.3);
+          opacity: 0;
+          transition: opacity 0.5s ease;
+        `;
+        helpInfo.textContent = 'Configuration panel is hidden. Use URL without ?hideConfig=true to enable it.';
+        document.body.appendChild(helpInfo);
+        
+        // Fade in
+        setTimeout(() => {
+          helpInfo.style.opacity = '1';
+        }, 2000);
+        
+        // Fade out after some time
+        setTimeout(() => {
+          helpInfo.style.opacity = '0';
+          setTimeout(() => {
+            if (helpInfo.parentNode) {
+              document.body.removeChild(helpInfo);
+            }
+          }, 500);
+        }, 8000);
+      });
+    }
+  </script>
+  
+  <!-- Load scripts in the correct order -->
+  <script src="security-incidents.js"></script>
+  <script src="incident-config.js"></script>
+  <script src="brain-network.js"></script>
+  <script src="ui-interactions.js"></script>
+  <script src="cursor-aurora.js"></script>
+</body>
+</html>
