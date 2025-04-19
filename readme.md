@@ -2,8 +2,6 @@
 
 Defender Zone is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
 
-![Defender Zone Banner](https://via.placeholder.com/800x200?text=Defender+Zone)
-
 ## Overview
 
 This application provides a visually engaging way to display, manage, and respond to security incidents through an interactive neural network visualization. Security incidents are represented as special nodes within a 3D brain-like network, with complete response playbooks that can be displayed when incidents are selected.
@@ -215,3 +213,4 @@ If you encounter issues:
 - Three.js for 3D rendering capabilities
 - Express.js for the backend server
 - Docker for containerization
+- Fully built using Claude Pro
