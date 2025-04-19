@@ -1,6 +1,7 @@
 # Defender Mind
 
 Defender Mind is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
+Demo at: [website][https://demo.defender.zone]
 
 ## Overview
 
@@ -206,7 +207,7 @@ If you encounter issues:
 
 ## License
 
-[Include your license information here]
+Sharing is caring, it's free buddy.
 
 ## Credits
 
