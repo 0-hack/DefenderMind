@@ -1,7 +1,8 @@
 # Defender Mind
 
 Defender Mind is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
-Demo at: [website][https://demo.defender.zone]
+
+Demo available at https://demo.defender.zone
 
 ## Overview
 
@@ -110,7 +111,8 @@ http://localhost:3000/?hideConfig=true
 
 All incident data is saved to a persistent Docker volume. This means your changes will be preserved even if you restart the container.
 
-The JSON file is stored in the container at: `/app/data/security-incidents.json`
+The default JSON file is stored in both the container at: `/app/data/security-incidents.json`
+And in your host machine at: '/var/lib/docker/volumes/defendermind_defender-data/_data/security-incidents.json'
 
 ## Manual Data Export/Import
 
