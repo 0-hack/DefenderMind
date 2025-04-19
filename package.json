@@ -1,7 +1,7 @@
 {
   "name": "defender-zone",
   "version": "1.0.0",
-  "description": "Defender Zone Incident Management System",
+  "description": "Defender Mind Incident Management System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
