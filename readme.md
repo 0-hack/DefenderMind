@@ -112,6 +112,7 @@ http://localhost:3000/?hideConfig=true
 All incident data is saved to a persistent Docker volume. This means your changes will be preserved even if you restart the container.
 
 The default JSON file is stored in both the container at: `/app/data/security-incidents.json`
+
 And in your host machine at: '/var/lib/docker/volumes/defendermind_defender-data/_data/security-incidents.json'
 
 ## Manual Data Export/Import
