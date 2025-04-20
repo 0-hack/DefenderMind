@@ -137,6 +137,29 @@ document.addEventListener('DOMContentLoaded', function() {
     params.position.z
   );
   
+  // Variables for auto and user-controlled rotation
+  let enableAutoRotation = true;
+  let userControlling = false;
+  
+  // Target rotation - for smooth interpolation
+  let targetRotationX = 0;
+  let targetRotationY = 0;
+  let currentRotationX = 0;
+  let currentRotationY = 0;
+  
+  // Inertia variables for smooth rotation continue after drag
+  let rotationVelocityX = 0;
+  let rotationVelocityY = 0;
+  let rotationDamping = 0.95; // Damping factor (0-1) - higher = longer continuation
+  let rotationInertiaActive = false;
+  let lastDragTime = 0;
+  let dragDeltaX = 0;
+  let dragDeltaY = 0;
+  let dragTimeout = null;
+  
+  // Adjust sensitivity based on device
+  const rotationSensitivity = isMobile ? 0.005 : 0.003;
+  
   // Camera control object for zoom functionality
   const cameraControl = {
     zoomTo: function(targetPosition) {
@@ -756,6 +779,62 @@ document.addEventListener('DOMContentLoaded', function() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
   
+  // Helper to check if a click/touch is on an interactive element
+  function isInteractiveElement(event) {
+    // If no specific target (e.g., during some synthetic events), assume not interactive
+    if (!event || !event.target) return false;
+    
+    // Get the target element
+    const target = event.target;
+    
+    // Check if it's the canvas itself - canvas should allow rotation
+    if (target === renderer.domElement) return false;
+    
+    // Comprehensive list of elements to avoid rotating when clicking
+    const interactiveSelectors = [
+      '.node-label',           // Incident node labels
+      '.search-container',     // Search bar and results
+      '#configPanel',          // Config panel
+      '#configButton',         // Config button
+      '#resetViewButton',      // Reset view button
+      '.incident-panel',       // Incident details panel
+      '.incident-close-btn',   // Close button on incident panel
+      '.step-item',            // Steps in incident details
+      'input',                 // Any input elements
+      'button',                // Any buttons
+      'a',                     // Any links
+      '.search-result-item',   // Search result items
+      '.digital-counter',      // Digital counters in UI
+      '.step-description'      // Step descriptions
+    ];
+    
+    // Check if target or any parent matches the selectors
+    for (const selector of interactiveSelectors) {
+      if (target.matches && target.matches(selector)) return true;
+      if (target.closest && target.closest(selector)) return true;
+    }
+    
+    // Additional checks for specific element types
+    if (target.tagName === 'INPUT' || 
+        target.tagName === 'BUTTON' || 
+        target.tagName === 'A' || 
+        target.tagName === 'SELECT' || 
+        target.tagName === 'TEXTAREA') {
+      return true;
+    }
+    
+    // Check for role attributes commonly used in interactive elements
+    if (target.getAttribute && 
+        (target.getAttribute('role') === 'button' || 
+         target.getAttribute('role') === 'link' || 
+         target.getAttribute('role') === 'menuitem')) {
+      return true;
+    }
+    
+    // Safe default - not an interactive element
+    return false;
+  }
+  
   // Setup the 3D scene and start animation
   function initialize() {
     // Clear any background textures or cubes that might be in the scene
@@ -797,9 +876,12 @@ document.addEventListener('DOMContentLoaded', function() {
     window.SecurityIncidents.setupInteractions(raycaster, mouse, camera, brainNodes);
     window.brainNodes = brainNodes;
     
-    // Add mobile touch controls if needed
+    // Add rotation controls - consolidated for desktop and mobile
+    setupRotationControls();
+    
+    // Add specific mobile controls for pinch zoom
     if (isMobile) {
-      setupMobileTouchControls();
+      setupMobilePinchZoom();
       createResetButton();
     }
     
@@ -825,12 +907,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!isPaused) {
         accumulatedTime += delta;
         
-        // Reduce rotation amount on mobile
-        const rotationFactor = isMobile ? 0.05 : 0.1;
-        
-        // Rotate the scene slightly
-        scene.rotation.y = Math.sin(accumulatedTime * rotationFactor) * 0.08;
-        scene.rotation.x = Math.sin(accumulatedTime * rotationFactor * 1.5) * 0.03;
+        // Update rotation with smooth interpolation
+        updateRotation(delta);
         
         brainNodes.forEach(node => {
           if (node.mesh) {
@@ -856,57 +934,223 @@ document.addEventListener('DOMContentLoaded', function() {
     animate();
   }
   
-  // Add touch controls for mobile devices
-  function setupMobileTouchControls() {
-    let touchActive = false;
-    let lastTouchX = 0;
-    let lastTouchY = 0;
+  // Update rotation based on various factors (auto, user control, inertia)
+  function updateRotation(deltaTime) {
+    // If user is actively controlling, they have full control
+    if (userControlling) {
+      // Apply rotation directly
+      scene.rotation.x = targetRotationX;
+      scene.rotation.y = targetRotationY;
+      
+      // Store current values for transitions
+      currentRotationX = targetRotationX;
+      currentRotationY = targetRotationY;
+      return;
+    }
     
-    // Handle touch start
-    document.addEventListener('touchstart', function(e) {
-      if (e.touches.length === 1) {
-        touchActive = true;
-        lastTouchX = e.touches[0].clientX;
-        lastTouchY = e.touches[0].clientY;
+    // Apply inertia if active
+    if (rotationInertiaActive) {
+      // Update rotation based on velocity
+      targetRotationY += rotationVelocityY;
+      targetRotationX += rotationVelocityX;
+      
+      // Apply damping
+      rotationVelocityY *= rotationDamping;
+      rotationVelocityX *= rotationDamping;
+      
+      // Stop inertia if velocity is very small
+      if (Math.abs(rotationVelocityY) < 0.0002 && Math.abs(rotationVelocityX) < 0.0002) {
+        rotationInertiaActive = false;
+        // Resume auto rotation once inertia stops
+        setTimeout(() => {
+          enableAutoRotation = true;
+        }, 500);
       }
-    });
+      
+      // Smooth interpolation to target rotation
+      currentRotationY += (targetRotationY - currentRotationY) * 0.2;
+      currentRotationX += (targetRotationX - currentRotationX) * 0.2;
+      
+      // Apply rotation
+      scene.rotation.y = currentRotationY;
+      scene.rotation.x = currentRotationX;
+      return;
+    }
     
-    // Handle touch move
-    document.addEventListener('touchmove', function(e) {
-      if (touchActive && e.touches.length === 1) {
-        const touchX = e.touches[0].clientX;
-        const touchY = e.touches[0].clientY;
-        
-        const deltaX = touchX - lastTouchX;
-        const deltaY = touchY - lastTouchY;
-        
-        // Only apply rotation if movement is significant
-        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
-          // Rotate brain with touch movement
-          scene.rotation.y += deltaX * 0.003;
-          scene.rotation.x += deltaY * 0.003;
-          
-          // Limit rotation
-          scene.rotation.x = Math.max(Math.min(scene.rotation.x, 0.5), -0.5);
-          
-          // Update last touch position
-          lastTouchX = touchX;
-          lastTouchY = touchY;
+    // Apply auto rotation when nothing else is controlling
+    if (enableAutoRotation) {
+      // Auto rotation with sine wave
+      const targetAutoY = Math.sin(accumulatedTime * 0.1) * 0.08;
+      const targetAutoX = Math.sin(accumulatedTime * 0.15) * 0.03;
+      
+      // Smoothly interpolate to auto rotation
+      currentRotationY += (targetAutoY - currentRotationY) * 0.02;
+      currentRotationX += (targetAutoX - currentRotationX) * 0.02;
+      
+      // Apply rotation
+      scene.rotation.y = currentRotationY;
+      scene.rotation.x = currentRotationX;
+      
+      // Update targets for smooth transition if user takes control
+      targetRotationY = currentRotationY;
+      targetRotationX = currentRotationX;
+    }
+  }
+  
+  // Setup consolidated rotation controls for both desktop and mobile
+  function setupRotationControls() {
+    // State variables
+    let isPointerDown = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let pointerDownTime = 0;
+    
+    // Mouse down / touch start
+    document.addEventListener(isMobile ? 'touchstart' : 'mousedown', function(event) {
+      // For touch events, use the first touch point
+      const clientX = isMobile ? event.touches[0].clientX : event.clientX;
+      const clientY = isMobile ? event.touches[0].clientY : event.clientY;
+      
+      // Skip if interactive element
+      if (isInteractiveElement(event)) return;
+      
+      // Start rotation control
+      isPointerDown = true;
+      lastPointerX = clientX;
+      lastPointerY = clientY;
+      pointerDownTime = Date.now();
+      
+      // Disable auto rotation
+      enableAutoRotation = false;
+      userControlling = true;
+      
+      // Stop any inertia
+      rotationInertiaActive = false;
+      rotationVelocityX = 0;
+      rotationVelocityY = 0;
+      
+      // Store current rotation as target
+      targetRotationY = scene.rotation.y;
+      targetRotationX = scene.rotation.x;
+      
+      // Reset tracking variables for inertia
+      dragDeltaX = 0;
+      dragDeltaY = 0;
+      
+      // Prevent default behavior only on non-interactive elements
+      if (event.preventDefault) event.preventDefault();
+    }, { passive: false });
+    
+    // Mouse move / touch move
+    document.addEventListener(isMobile ? 'touchmove' : 'mousemove', function(event) {
+      if (!isPointerDown) return;
+      
+      // For touch events, use the first touch point
+      const clientX = isMobile ? event.touches[0].clientX : event.clientX;
+      const clientY = isMobile ? event.touches[0].clientY : event.clientY;
+      
+      // Calculate movement delta
+      const deltaX = clientX - lastPointerX;
+      const deltaY = clientY - lastPointerY;
+      
+      // Update tracking for inertia
+      dragDeltaX = deltaX;
+      dragDeltaY = deltaY;
+      lastDragTime = Date.now();
+      
+      // Apply rotation with sensitivity adjustment
+      targetRotationY += deltaX * rotationSensitivity;
+      targetRotationX += deltaY * rotationSensitivity;
+      
+      // Clamp vertical rotation to avoid flipping
+      targetRotationX = Math.max(Math.min(targetRotationX, Math.PI / 4), -Math.PI / 4);
+      
+      // Update last position
+      lastPointerX = clientX;
+      lastPointerY = clientY;
+      
+      // Clear any pending timeout
+      if (dragTimeout) clearTimeout(dragTimeout);
+      
+      // Set a timeout to detect when dragging stops without pointer up
+      dragTimeout = setTimeout(() => {
+        if (isPointerDown) {
+          isPointerDown = false;
+          userControlling = false;
+          startInertiaRotation();
         }
+      }, 150);
+      
+      // Prevent default to avoid page scrolling during drag
+      if (event.preventDefault) event.preventDefault();
+    }, { passive: false });
+    
+    // Mouse up / touch end
+    document.addEventListener(isMobile ? 'touchend' : 'mouseup', function(event) {
+      if (!isPointerDown) return;
+      
+      isPointerDown = false;
+      userControlling = false;
+      
+      // Calculate time since pointer down
+      const releaseTime = Date.now();
+      const pressDuration = releaseTime - pointerDownTime;
+      
+      // Start inertia if drag was recent and not a click/tap
+      if (pressDuration > 100) {
+        startInertiaRotation();
+      } else {
+        // If it was a quick tap/click with minimal movement, just resume auto rotation
+        setTimeout(() => {
+          enableAutoRotation = true;
+        }, 300);
       }
     });
     
-    // Handle touch end
-    document.addEventListener('touchend', function() {
-      touchActive = false;
+    // Pointer leave - handle case when pointer exits window
+    document.addEventListener(isMobile ? 'touchcancel' : 'mouseleave', function() {
+      if (isPointerDown) {
+        isPointerDown = false;
+        userControlling = false;
+        startInertiaRotation();
+      }
     });
+  }
+  
+  // Initialize inertia based on recent drag speed
+  function startInertiaRotation() {
+    // Calculate how recent the last drag was
+    const timeSinceLastDrag = Date.now() - lastDragTime;
     
-    // Handle pinch to zoom
+    // Only apply inertia if the drag was recent and had significant movement
+    if (timeSinceLastDrag < 100 && (Math.abs(dragDeltaX) > 0.5 || Math.abs(dragDeltaY) > 0.5)) {
+      // Scale factor for inertia - higher = stronger effect
+      const inertiaFactor = 0.003;
+      
+      // Calculate velocities based on recent movement
+      rotationVelocityY = dragDeltaX * inertiaFactor;
+      rotationVelocityX = dragDeltaY * inertiaFactor;
+      
+      // Activate inertia
+      rotationInertiaActive = true;
+    } else {
+      // If no recent movement, just resume auto rotation after a delay
+      setTimeout(() => {
+        enableAutoRotation = true;
+      }, 500);
+    }
+  }
+  
+  // Setup mobile-specific pinch zoom controls
+  function setupMobilePinchZoom() {
     let initialPinchDistance = 0;
     
     document.addEventListener('touchstart', function(e) {
       if (e.touches.length === 2) {
         initialPinchDistance = getPinchDistance(e);
+        
+        // Stop auto rotation during pinch zoom
+        enableAutoRotation = false;
       }
     });
     
@@ -934,6 +1178,15 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     
+    document.addEventListener('touchend', function(e) {
+      // Resume auto rotation after pinch zoom if no fingers remain
+      if (e.touches.length === 0) {
+        setTimeout(() => {
+          enableAutoRotation = true;
+        }, 500);
+      }
+    });
+    
     // Helper function to calculate distance between touch points
     function getPinchDistance(e) {
       return Math.hypot(
@@ -941,8 +1194,6 @@ document.addEventListener('DOMContentLoaded', function() {
         e.touches[0].clientY - e.touches[1].clientY
       );
     }
-    
-    console.log("Mobile touch controls enabled");
   }
   
   // Create reset view button for mobile
@@ -971,9 +1222,23 @@ document.addEventListener('DOMContentLoaded', function() {
     resetBtn.style.boxShadow = '0 0 15px rgba(0, 100, 255, 0.3)';
     
     resetBtn.addEventListener('click', function() {
-      // Reset to default view
+      // Reset rotation state
+      targetRotationX = 0;
+      targetRotationY = 0;
+      currentRotationX = 0;
+      currentRotationY = 0;
+      
+      // Reset scene rotation immediately
       scene.rotation.x = 0;
       scene.rotation.y = 0;
+      
+      // Reset velocities and inertia
+      rotationVelocityX = 0;
+      rotationVelocityY = 0;
+      rotationInertiaActive = false;
+      
+      // Re-enable auto-rotation
+      enableAutoRotation = true;
       
       // Reset camera position
       const newIsPortrait = window.innerHeight > window.innerWidth;
