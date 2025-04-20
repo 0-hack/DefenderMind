@@ -10,6 +10,9 @@ let isPanelCreated = false;
 let isPanelVisible = false;
 let securityIncidentsReadyInterval = null;
 
+// Constants for node limitations
+const MAX_BRAIN_NODES = 162; // Maximum nodes available (desktop version)
+
 // Wait for DOM content to be loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log("Loading configuration module");
@@ -197,6 +200,13 @@ function createConfigPanelStructure() {
     border-bottom: 1px solid rgba(0,100,200,0.3);
   `;
   
+  const headerTitleContainer = document.createElement('div');
+  headerTitleContainer.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  `;
+  
   const headerTitle = document.createElement('h2');
   headerTitle.textContent = 'Node Configuration';
   headerTitle.style.cssText = `
@@ -205,6 +215,23 @@ function createConfigPanelStructure() {
     color: #66ccff;
     text-shadow: 0 0 10px rgba(0,150,255,0.3);
   `;
+  
+  // Create capacity indicator
+  const capacityIndicator = document.createElement('span');
+  capacityIndicator.id = 'node-capacity-indicator';
+  capacityIndicator.style.cssText = `
+    font-size: 14px;
+    color: #a4ddff;
+    background: rgba(0,50,100,0.3);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: normal;
+    border: 1px solid rgba(0,120,200,0.3);
+  `;
+  capacityIndicator.textContent = '0/' + MAX_BRAIN_NODES + ' nodes';
+  
+  headerTitleContainer.appendChild(headerTitle);
+  headerTitleContainer.appendChild(capacityIndicator);
   
   // Close button
   const closeBtn = document.createElement('button');
@@ -227,7 +254,7 @@ function createConfigPanelStructure() {
   
   closeBtn.addEventListener('click', toggleConfigPanel);
   
-  header.appendChild(headerTitle);
+  header.appendChild(headerTitleContainer);
   header.appendChild(closeBtn);
   
   // Create content area (scrollable)
@@ -251,6 +278,7 @@ function createConfigPanelStructure() {
   
   // Add button
   const addBtn = document.createElement('button');
+  addBtn.id = 'addIncidentBtn';
   addBtn.textContent = '+ Add New Incident';
   addBtn.style.cssText = `
     width: 100%;
@@ -267,6 +295,12 @@ function createConfigPanelStructure() {
   `;
   
   addBtn.addEventListener('click', () => {
+    // Check if we've reached maximum node capacity
+    if (incidentsData.length >= MAX_BRAIN_NODES) {
+      showNotification(`Cannot add more incidents. Maximum limit of ${MAX_BRAIN_NODES} nodes reached.`, 'error');
+      return;
+    }
+    
     // Create a new empty incident and open the editor
     const newIncident = {
       title: 'New Incident',
@@ -368,8 +402,16 @@ function createConfigPanelStructure() {
             );
             
             if (valid) {
-              incidentsData = imported;
+              // Check if the import would exceed the maximum node limit
+              if (imported.length > MAX_BRAIN_NODES) {
+                showNotification(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`, 'error');
+                // Truncate the imported array to maximum allowed
+                incidentsData = imported.slice(0, MAX_BRAIN_NODES);
+              } else {
+                incidentsData = imported;
+              }
               renderIncidentList();
+              updateCapacityIndicator();
               showNotification('Incidents imported successfully!', 'success');
             } else {
               showNotification('Invalid incident data format', 'error');
@@ -407,6 +449,47 @@ function createConfigPanelStructure() {
   console.log("Config panel structure created");
 }
 
+// Update the capacity indicator
+function updateCapacityIndicator() {
+  const capacityIndicator = document.getElementById('node-capacity-indicator');
+  if (capacityIndicator) {
+    const usedNodes = incidentsData.length;
+    const remainingNodes = MAX_BRAIN_NODES - usedNodes;
+    capacityIndicator.textContent = `${usedNodes}/${MAX_BRAIN_NODES} nodes`;
+    
+    // Change color based on capacity
+    if (usedNodes >= MAX_BRAIN_NODES) {
+      capacityIndicator.style.color = '#ff9999';
+      capacityIndicator.style.borderColor = 'rgba(200,50,50,0.4)';
+      capacityIndicator.style.background = 'rgba(80,0,0,0.3)';
+    } else if (usedNodes >= MAX_BRAIN_NODES * 0.8) { // Over 80% usage
+      capacityIndicator.style.color = '#ffcc99';
+      capacityIndicator.style.borderColor = 'rgba(200,150,50,0.4)';
+      capacityIndicator.style.background = 'rgba(80,50,0,0.3)';
+    } else {
+      capacityIndicator.style.color = '#a4ddff';
+      capacityIndicator.style.borderColor = 'rgba(0,120,200,0.3)';
+      capacityIndicator.style.background = 'rgba(0,50,100,0.3)';
+    }
+    
+    // Update add button state
+    const addButton = document.getElementById('addIncidentBtn');
+    if (addButton) {
+      if (usedNodes >= MAX_BRAIN_NODES) {
+        addButton.disabled = true;
+        addButton.style.opacity = '0.5';
+        addButton.style.cursor = 'not-allowed';
+        addButton.title = 'Maximum node limit reached';
+      } else {
+        addButton.disabled = false;
+        addButton.style.opacity = '1';
+        addButton.style.cursor = 'pointer';
+        addButton.title = '';
+      }
+    }
+  }
+}
+
 // Load incident data from the main security incidents array
 function loadIncidentData() {
   console.log("Loading memory");
@@ -419,6 +502,7 @@ function loadIncidentData() {
     // Use requestAnimationFrame for smoother rendering
     requestAnimationFrame(() => {
       renderIncidentList();
+      updateCapacityIndicator();
     });
     
     return true;
@@ -502,6 +586,9 @@ function renderIncidentList() {
   
   // Add all items to DOM at once
   incidentList.appendChild(fragment);
+  
+  // Update capacity indicator
+  updateCapacityIndicator();
 }
 
 // Helper function to create incident list item
@@ -929,7 +1016,7 @@ function showIncidentEditor(incident, isNew) {
   const nodeIndexInput = document.createElement('input');
   nodeIndexInput.type = 'number';
   nodeIndexInput.min = '0';
-  nodeIndexInput.max = '200';
+  nodeIndexInput.max = '161';
   nodeIndexInput.value = editingIncident.index;
   nodeIndexInput.style.cssText = `
     width: 100%;
@@ -1162,6 +1249,12 @@ function showIncidentEditor(incident, isNew) {
     
     // Add or update in the incidents array
     if (isNew) {
+      // First check if we've reached maximum capacity
+      if (incidentsData.length >= MAX_BRAIN_NODES) {
+        showNotification(`Cannot add more incidents. Maximum limit of ${MAX_BRAIN_NODES} nodes reached.`, 'error');
+        return;
+      }
+      
       incidentsData.push(editingIncident);
     } else {
       // Replace the existing incident with the same title
@@ -1175,6 +1268,9 @@ function showIncidentEditor(incident, isNew) {
     
     // Refresh the list
     renderIncidentList();
+    
+    // Update capacity indicator
+    updateCapacityIndicator();
     
     // Close the editor
     document.body.removeChild(overlay);
@@ -1304,6 +1400,9 @@ function confirmDeletion(index) {
     
     // Re-render the list
     renderIncidentList();
+    
+    // Update capacity indicator
+    updateCapacityIndicator();
     
     // Close the dialog
     document.body.removeChild(overlay);
