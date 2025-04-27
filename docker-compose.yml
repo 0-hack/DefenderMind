@@ -1,17 +1,21 @@
-version: '3'
+version: '3.8'
 services:
   defender-zone:
     build: .
     ports:
       - "3000:3000"
     volumes:
-      # ONLY mount the data directory, not the entire app
       - defender-data:/app/data
     environment:
       - NODE_ENV=production
-      # Set to 'true' to disable configuration interface for public deployments
       - DISABLE_CONFIG=false
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   defender-data:
