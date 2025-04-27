@@ -6,7 +6,7 @@ Demo available at https://mind.defender.zone
 
 ## Overview
 
-This application provides a visually engaging way to display, manage, and respond to security incidents through an interactive neural network visualization. Security incidents are represented as special nodes within a 3D brain-like network, with complete response playbooks that can be displayed when incidents are selected.
+This application provides a visually engaging way to display, manage, and respond to security incidents through an interactive neural network visualization. Security incidents are represented as special nodes within a 3D brain-like network, with complete response playbooks that can be displayed when selected.
 
 ## Quick Start with Docker
 
@@ -47,22 +47,37 @@ docker-compose down
 
 - **Interactive 3D Brain Network Visualization**: Engaging visualization with responsive design for both desktop and mobile
 - **Security Incident Management**: Create, edit, and manage security incident response playbooks
+- **Decision-Based Playbooks**: Build incident response flows with conditional branches and decision points
+- **Inter-Playbook Navigation**: Create links between different incident types for comprehensive response paths
+- **Full-Text Search**: Quickly locate incidents by keywords in titles, steps, conditions, or descriptions
 - **Step-by-Step Response Plans**: Each incident includes detailed steps for proper incident response
 - **Configurable Incidents**: Add, edit, remove and customize security incidents with a built-in configuration panel
 - **Persistent Storage**: All changes are automatically saved to a JSON file in a Docker volume
 - **Mobile-Responsive Design**: Automatically adapts to different screen sizes and devices
-- **Search Functionality**: Quickly find incidents by title or content
 - **Visual Customization**: Customize incident node colors and appearance
 - **Export/Import**: Share incident configurations between deployments
+- **Interactive Cursor Effects**: Subtle blue aurora follows cursor movements for enhanced visual experience
+- **Camera Controls**: Smooth zooming and rotation for better incident exploration
 
 ## Visual Elements
 
 - Animated 3D brain network with glowing nodes and connections
 - Interactive security incident nodes with custom colors
-- Floating labels that adapt to viewing angle
-- Step-by-step incident response playbooks
+- Floating labels that adapt to viewing angle and avoid overlapping
+- Step-by-step incident response playbooks with expandable sections
+- Conditional branching with visual decision points
 - Subtle cursor aurora effects for better interactivity
 - Responsive design that works on both desktop and mobile devices
+
+## Incident Playbooks
+
+Defender Mind uses an advanced playbook system with:
+
+- **Standard Steps**: Regular response instructions with expandable details
+- **Condition Steps**: Decision points with multiple paths based on scenario variations
+- **Cross-Playbook Links**: Navigate between related incidents for comprehensive response
+- **Target Step Navigation**: Jump to specific steps within the same or different playbooks
+- **Visual Indicators**: Clear icons showing conditions and available links
 
 ## Configuration Mode
 
@@ -70,9 +85,12 @@ The configuration panel allows you to:
 
 - Add new security incidents
 - Edit existing incidents and their response steps
+- Create conditional branches with multiple response paths
+- Establish links between different playbooks
 - Customize colors and appearance
 - Assign incidents to specific network nodes
 - Export and import incident configurations
+- Manage all incident playbooks from a centralized interface
 
 ## Public Display Mode
 
@@ -93,7 +111,7 @@ For public displays or shared environments where you don't want users to modify 
 
 This will hide the configuration button entirely, making it impossible for users to modify incident data. The setting is controlled at the server level for improved security.
 
-Alternatively, you can use a URL parameter to temporarily hide the configuration interface:
+Alternatively (not suggested), you can use a URL parameter to temporarily hide the configuration interface:
 
 ```
 http://localhost:3000/?hideConfig=true
@@ -106,6 +124,17 @@ http://localhost:3000/?hideConfig=true
 - Incident node labels are clickable on mobile for easier interaction
 - "Reset View" button on mobile to easily return to the default view
 - Optimized rendering for better performance on mobile devices
+- Pinch-to-zoom gesture support for intuitive navigation
+- Automatic adaptation of network density and effects based on device capabilities
+- Portrait and landscape mode optimizations
+
+## Search Functionality
+
+- Full-text search across all incident data
+- Find incidents by title, step descriptions, or condition content
+- Real-time search results with visual indicators
+- Direct navigation to found incidents with automatic camera focus
+- Highlights matching content in search results
 
 ## Persistence
 
@@ -172,6 +201,8 @@ docker-compose up -d --build
 - The application uses hardware acceleration for 3D rendering
 - Mobile devices have optimized settings with fewer particles and effects
 - Responsive design adapts visualization complexity based on device capabilities
+- Brain network automatically scales based on screen dimensions
+- Animations and effects are reduced on lower-powered devices
 
 ## Browser Compatibility
 
@@ -217,4 +248,3 @@ Sharing is caring, it's free buddy.
 - Three.js for 3D rendering capabilities
 - Express.js for the backend server
 - Docker for containerization
-- Fully built using Claude Pro
