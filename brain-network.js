@@ -136,6 +136,10 @@ document.addEventListener('DOMContentLoaded', function() {
     params.position.y, 
     params.position.z
   );
+  // Variable to track if we've stored the initial position
+  let initialPositionStored = false;
+  // Store the true initial camera position that we'll always return to
+  let initialCameraPosition = new THREE.Vector3();
   
   // Variables for auto and user-controlled rotation
   let enableAutoRotation = true;
@@ -160,75 +164,105 @@ document.addEventListener('DOMContentLoaded', function() {
   // Adjust sensitivity based on device
   const rotationSensitivity = isMobile ? 0.005 : 0.003;
   
-  // Camera control object for zoom functionality
-  const cameraControl = {
-    zoomTo: function(targetPosition) {
-      // Store original camera position if this is our first zoom
-      if (!isZooming) {
-        originalCameraPosition.copy(camera.position);
-      }
-      
-      // Setup zoom animation
+// Enhanced cameraControl object with proper position tracking and original speed
+const cameraControl = {
+  zoomTo: function(targetPosition) {
+    // If this is our first zoom ever, store the initial camera position
+    if (!initialPositionStored) {
+      initialCameraPosition.copy(camera.position);
+      initialPositionStored = true;
+    }
+    
+    // For each zoom operation, store the current position as the start point
+    if (!isZooming) {
+      originalCameraPosition.copy(camera.position);
+    }
+    
+    // Setup zoom animation
+    zoomStart.copy(camera.position);
+    
+    // Calculate zoom target position - closer to the node
+    zoomTarget.copy(targetPosition);
+    
+    // Calculate direction from camera to target
+    const direction = new THREE.Vector3().subVectors(targetPosition, camera.position).normalize();
+    
+    // Set target to be 5 units away from the node in the direction from origin to node
+    const nodeToOrigin = new THREE.Vector3().subVectors(new THREE.Vector3(), targetPosition).normalize();
+    zoomTarget.copy(targetPosition).add(nodeToOrigin.multiplyScalar(5));
+    
+    // Reset zoom progress
+    zoomProgress = 0;
+    isZooming = true;
+  },
+  
+  zoomOut: function(immediate = false) {
+    if (immediate) {
+      // Reset camera position immediately to the initial position
+      camera.position.copy(initialPositionStored ? initialCameraPosition : originalCameraPosition);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+      isZooming = false;
+    } else {
+      // Setup smooth zoom out animation
       zoomStart.copy(camera.position);
       
-      // Calculate zoom target position - closer to the node
-      zoomTarget.copy(targetPosition);
+      // Always go back to the initial camera position, not just the last one
+      zoomTarget.copy(initialPositionStored ? initialCameraPosition : originalCameraPosition);
       
-      // Calculate direction from camera to target
-      const direction = new THREE.Vector3().subVectors(targetPosition, camera.position).normalize();
-      
-      // Set target to be 5 units away from the node in the direction from origin to node
-      const nodeToOrigin = new THREE.Vector3().subVectors(new THREE.Vector3(), targetPosition).normalize();
-      zoomTarget.copy(targetPosition).add(nodeToOrigin.multiplyScalar(5));
-      
-      // Reset zoom progress
       zoomProgress = 0;
+      zoomDuration = 1.0; // Back to original speed
       isZooming = true;
-    },
-    
-    zoomOut: function(immediate = false) {
-      if (immediate) {
-        // Reset camera position immediately
-        camera.position.copy(originalCameraPosition);
-        camera.lookAt(new THREE.Vector3(0, 0, 0));
+      
+      // Temporarily disable auto rotation during transition
+      enableAutoRotation = false;
+      
+      // Re-enable auto rotation after animation completes
+      setTimeout(() => {
+        if (!userControlling && !rotationInertiaActive) {
+          enableAutoRotation = true;
+        }
+      }, zoomDuration * 1000 + 100); // Small buffer
+    }
+  },
+  
+  update: function(deltaTime) {
+    if (isZooming) {
+      // Update progress
+      zoomProgress += deltaTime / zoomDuration;
+      
+      if (zoomProgress >= 1.0) {
+        // Animation complete
+        zoomProgress = 1.0;
         isZooming = false;
-      } else {
-        // Setup smooth zoom out animation
-        zoomStart.copy(camera.position);
-        zoomTarget.copy(originalCameraPosition);
-        zoomProgress = 0;
-        isZooming = true;
-      }
-    },
-    
-    update: function(deltaTime) {
-      if (isZooming) {
-        // Update progress
-        zoomProgress += deltaTime / zoomDuration;
         
-        if (zoomProgress >= 1.0) {
-          // Animation complete
-          zoomProgress = 1.0;
-          isZooming = false;
-          
-          // Ensure we're exactly at target position
-          camera.position.copy(zoomTarget);
+        // Ensure we're exactly at target position
+        camera.position.copy(zoomTarget);
+      } else {
+        // Enhanced smooth easing function for animation
+        // Using improved easing for more natural movement
+        let t;
+        if (zoomProgress < 0.3) {
+          // Slow start (ease in)
+          t = 3.3 * zoomProgress * zoomProgress;
+        } else if (zoomProgress > 0.7) {
+          // Slow end (ease out)
+          const p = (zoomProgress - 0.7) / 0.3;
+          t = 0.7 + (1 - Math.pow(1 - p, 3)) * 0.3;
         } else {
-          // Smooth easing function for animation
-          const t = zoomProgress < 0.5 
-            ? 2 * zoomProgress * zoomProgress  // Ease in
-            : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;  // Ease out
-          
-          // Update camera position with easing
-          camera.position.lerpVectors(zoomStart, zoomTarget, t);
+          // Linear in the middle for smooth consistent motion
+          t = 0.3 + (zoomProgress - 0.3) * (0.4/0.4);
         }
         
-        // Always look at center
-        camera.lookAt(new THREE.Vector3(0, 0, 0));
+        // Update camera position with easing
+        camera.position.lerpVectors(zoomStart, zoomTarget, t);
       }
+      
+      // Always look at center
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
     }
-  };
-  
+  }
+};
+
   // Create stars background with more stars - MODIFIED to prevent overlap with brain nodes
   function createStars() {
     const starsGeometry = new THREE.BufferGeometry();
@@ -1284,4 +1318,54 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Start everything
   initialize();
+
+  // Expose key functions and variables for inter-module communication
+window.camera = camera;
+window.scene = scene;
+window.calculateCameraDistance = calculateCameraDistance;
+
+// Create and expose a global reset view function
+window.resetCameraView = function(smooth = true) {
+  // Reset rotation state
+  targetRotationX = 0;
+  targetRotationY = 0;
+  currentRotationX = 0;
+  currentRotationY = 0;
+  
+  // Reset scene rotation immediately
+  scene.rotation.x = 0;
+  scene.rotation.y = 0;
+  
+  // Reset velocities and inertia
+  rotationVelocityX = 0;
+  rotationVelocityY = 0;
+  rotationInertiaActive = false;
+  
+  // Re-enable auto-rotation
+  enableAutoRotation = true;
+  
+  if (smooth) {
+    // Use the camera control for smooth zoom out
+    cameraControl.zoomOut(false); // false means use smooth animation
+  } else {
+    // Immediate reset without animation
+    const newIsPortrait = window.innerHeight > window.innerWidth;
+    
+    // Use the initial camera position if available
+    if (initialPositionStored) {
+      camera.position.copy(initialCameraPosition);
+    } else {
+      // Fallback to calculated default
+      camera.position.z = calculateCameraDistance();
+      camera.position.y = 0;
+      camera.position.x = 0;
+    }
+    
+    camera.updateProjectionMatrix();
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+    
+    // Center appropriately
+    scene.position.y = newIsPortrait ? 2 : 0;
+  }
+};
 });
