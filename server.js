@@ -1,3 +1,21 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs').promises;
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Add robust error handling
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
 // Updated defaultIncidents with the new type structure
 const defaultIncidents = [
   {
@@ -252,3 +270,10 @@ const defaultIncidents = [
     color: '#99CC66'
   }
 ];
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+}).on('error', (error) => {
+  console.error('Server startup error:', error);
+  process.exit(1);
+});
