@@ -1,30 +1,68 @@
 // Security Incident Definitions and Visualization
 // This file manages security incident data and UI elements for the brain network
 
-// Create global variables
+// Global variables
 window.securityIncidents = [
   {
     title: 'Phishing',
     steps: [
       {
         title: 'Identify phishing email',
-        description: 'Analyze suspicious emails for common phishing indicators such as spoofed sender addresses, suspicious links, urgent language, or unexpected attachments.'
+        description: 'Analyze suspicious emails for common phishing indicators such as spoofed sender addresses, suspicious links, urgent language, or unexpected attachments.',
+        type: 'standard'
+      },
+      {
+        title: 'Check email content',
+        description: 'Determine what type of phishing attempt this is based on the content.',
+        type: 'condition',
+        conditions: [
+          {
+            title: 'Contains malicious URL',
+            target: 'next',
+            description: 'The email contains suspicious links that may lead to credential theft or malware.'
+          },
+          {
+            title: 'Contains attachment',
+            target: 'Malware Attack',
+            targetIndex: 100,
+            targetStep: 2, // Specify which step to navigate to
+            description: 'The email contains suspicious attachments that may contain malware.'
+          },
+          {
+            title: 'Credential phishing',
+            target: 'step:4',
+            description: 'The email attempts to steal credentials without attachments or links.'
+          }
+        ]
       },
       {
         title: 'Report to security team',
-        description: 'Forward the suspected phishing email to the security team immediately using the established reporting process.'
+        description: 'Forward the suspected phishing email to the security team immediately using the established reporting process.',
+        type: 'standard'
       },
       {
         title: 'Block sender domain',
-        description: 'Add the malicious sender domain to email filtering systems to prevent further messages from reaching users.'
+        description: 'Add the malicious sender domain to email filtering systems to prevent further messages from reaching users.',
+        type: 'standard'
       },
       {
         title: 'Scan affected systems',
-        description: 'Run full malware scans on any systems that may have interacted with the phishing content.'
+        description: 'Run full malware scans on any systems that may have interacted with the phishing content.',
+        type: 'standard'
       },
       {
         title: 'Train users on spotting phishing',
-        description: 'Conduct targeted training with affected users and send organization-wide reminders about phishing awareness.'
+        description: 'Conduct targeted training with affected users and send organization-wide reminders about phishing awareness.',
+        type: 'standard',
+        links: [
+          {
+            title: 'View Ransomware Response Plan',
+            target: 'Ransomware',
+            targetIndex: 50,
+            targetStep: 1, // Specify which step to navigate to
+            description: 'If ransomware is suspected, follow the dedicated response plan'
+          }
+        ]
       }
     ],
     index: 20,
@@ -35,23 +73,61 @@ window.securityIncidents = [
     steps: [
       {
         title: 'Isolate infected machines',
-        description: 'Immediately disconnect affected systems from the network to prevent lateral movement and further encryption.'
+        description: 'Immediately disconnect affected systems from the network to prevent lateral movement and further encryption.',
+        type: 'standard'
       },
       {
         title: 'Disable shared drives',
-        description: 'Turn off access to networked storage to minimize the spread of encryption across shared resources.'
+        description: 'Turn off access to networked storage to minimize the spread of encryption across shared resources.',
+        type: 'standard'
+      },
+      {
+        title: 'Assess encryption scope',
+        description: 'Determine the extent of encryption and affected systems.',
+        type: 'condition',
+        conditions: [
+          {
+            title: 'Limited encryption',
+            target: 'next',
+            description: 'Only a few systems are affected, and damage is limited.'
+          },
+          {
+            title: 'Widespread encryption',
+            target: 'step:5',
+            description: 'Multiple systems or critical infrastructure is encrypted.'
+          },
+          {
+            title: 'Potential data theft',
+            target: 'DDoS Attack',
+            targetIndex: 80,
+            targetStep: 3, // Navigate to specific step
+            description: 'Evidence suggests data exfiltration before encryption. Follow the data breach protocol.'
+          }
+        ]
       },
       {
         title: 'Notify IT security',
-        description: 'Engage the incident response team with details of the attack and affected systems.'
+        description: 'Engage the incident response team with details of the attack and affected systems.',
+        type: 'standard'
       },
       {
         title: 'Begin backups restore',
-        description: 'Prepare clean systems and begin restoration process from verified offline backups.'
+        description: 'Prepare clean systems and begin restoration process from verified offline backups.',
+        type: 'standard'
       },
       {
         title: 'Conduct forensic analysis',
-        description: 'Analyze attack vectors, ransomware variant, and IOCs to improve defense and share intelligence.'
+        description: 'Analyze attack vectors, ransomware variant, and IOCs to improve defense and share intelligence.',
+        type: 'standard',
+        links: [
+          {
+            title: 'Check for malware persistence',
+            target: 'Malware Attack',
+            targetIndex: 100,
+            targetStep: 3, // Specify target step
+            description: 'Follow the malware response plan to ensure complete removal'
+          }
+        ]
       }
     ],
     index: 50,
@@ -62,23 +138,59 @@ window.securityIncidents = [
     steps: [
       {
         title: 'Alert hosting provider',
-        description: 'Contact your hosting or cloud provider immediately to activate their DDoS mitigation services.'
+        description: 'Contact your hosting or cloud provider immediately to activate their DDoS mitigation services.',
+        type: 'standard'
       },
       {
         title: 'Activate rate-limiting',
-        description: 'Implement rate limiting at your edge network to reduce the impact of the incoming traffic flood.'
+        description: 'Implement rate limiting at your edge network to reduce the impact of the incoming traffic flood.',
+        type: 'standard'
+      },
+      {
+        title: 'Assess attack type',
+        description: 'Determine the type of DDoS attack to implement appropriate countermeasures.',
+        type: 'condition',
+        conditions: [
+          {
+            title: 'Volumetric attack',
+            target: 'next',
+            description: 'Attack that attempts to consume bandwidth with high volume of traffic.'
+          },
+          {
+            title: 'Application layer attack',
+            target: 'step:4',
+            description: 'Attack targeting application resources and processes.'
+          },
+          {
+            title: 'Mixed or advanced attack',
+            target: 'step:5',
+            description: 'Sophisticated attack using multiple vectors or techniques.'
+          }
+        ]
       },
       {
         title: 'Deploy WAF/anti-DDoS',
-        description: 'Enable Web Application Firewall rules specifically designed to filter attack traffic patterns.'
+        description: 'Enable Web Application Firewall rules specifically designed to filter attack traffic patterns.',
+        type: 'standard'
       },
       {
         title: 'Monitor attack source',
-        description: 'Analyze traffic to identify attack signatures, source IPs, and attack methods being used.'
+        description: 'Analyze traffic to identify attack signatures, source IPs, and attack methods being used.',
+        type: 'standard'
       },
       {
         title: 'Block bad IPs or geo-ranges',
-        description: 'Implement IP blocking for identified attack sources or entire geographic regions if necessary.'
+        description: 'Implement IP blocking for identified attack sources or entire geographic regions if necessary.',
+        type: 'standard',
+        links: [
+          {
+            title: 'Check for data exfiltration',
+            target: 'Malware Attack',
+            targetIndex: 100,
+            targetStep: 4, // Target step specified
+            description: 'DDoS attacks are sometimes used as a smokescreen for data theft'
+          }
+        ]
       }
     ],
     index: 80,
@@ -89,23 +201,61 @@ window.securityIncidents = [
     steps: [
       {
         title: 'Isolate affected systems',
-        description: 'Immediately remove infected systems from the network to prevent malware from spreading.'
+        description: 'Immediately remove infected systems from the network to prevent malware from spreading.',
+        type: 'standard'
+      },
+      {
+        title: 'Determine malware type',
+        description: 'Identify the specific type of malware to guide the response.',
+        type: 'condition',
+        conditions: [
+          {
+            title: 'Trojan/Backdoor',
+            target: 'next',
+            description: 'Malware that provides unauthorized access to the system.'
+          },
+          {
+            title: 'Ransomware',
+            target: 'Ransomware',
+            targetIndex: 50,
+            targetStep: 0, // Navigate to first step
+            description: 'Malware that encrypts files and demands ransom payment.'
+          },
+          {
+            title: 'Worm/Self-propagating',
+            target: 'step:4',
+            description: 'Malware capable of spreading through the network automatically.'
+          }
+        ]
       },
       {
         title: 'Block suspicious connections',
-        description: 'Identify and block any command and control traffic at the firewall and DNS levels.'
+        description: 'Identify and block any command and control traffic at the firewall and DNS levels.',
+        type: 'standard'
       },
       {
         title: 'Scan for persistence mechanisms',
-        description: 'Check for backdoors, scheduled tasks, registry modifications, and other persistence techniques.'
+        description: 'Check for backdoors, scheduled tasks, registry modifications, and other persistence techniques.',
+        type: 'standard'
       },
       {
         title: 'Remove malicious files',
-        description: 'Clean systems using enterprise anti-malware tools or rebuild from trusted images if necessary.'
+        description: 'Clean systems using enterprise anti-malware tools or rebuild from trusted images if necessary.',
+        type: 'standard'
       },
       {
         title: 'Patch vulnerable systems',
-        description: 'Apply necessary security patches to prevent reinfection through the same vulnerability.'
+        description: 'Apply necessary security patches to prevent reinfection through the same vulnerability.',
+        type: 'standard',
+        links: [
+          {
+            title: 'Review phishing awareness',
+            target: 'Phishing',
+            targetIndex: 20,
+            targetStep: 5, // Navigate to step 5
+            description: 'If malware originated from phishing, review the email security process'
+          }
+        ]
       }
     ],
     index: 100,
@@ -123,6 +273,7 @@ let cameraControlCallback = null;
 let nodeLabels = [];
 let searchBar = null;
 let searchResults = null;
+let currentIncidentData = null;
 
 // Initialize incident UI components
 function initializeIncidentUI(pauseCallback, cameraCallback) {
@@ -143,18 +294,19 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   tooltip.style.zIndex = '8000';
   document.body.appendChild(tooltip);
   
-  // Create incident panel
+  // Create incident panel - IMPROVED POSITIONING
   incidentPanel = document.createElement('div');
-  incidentPanel.style.position = 'absolute';
+  incidentPanel.className = 'incident-panel';
+  incidentPanel.style.position = 'fixed'; // Change to fixed for better positioning
   incidentPanel.style.top = '50%';
   incidentPanel.style.left = '50%';
   incidentPanel.style.transform = 'translate(-50%, -50%) scale(0.8)';
-  incidentPanel.style.width = '450px';
+  incidentPanel.style.width = '500px';
   incidentPanel.style.maxWidth = '90vw';
   incidentPanel.style.maxHeight = '80vh';
   incidentPanel.style.background = 'rgba(0,15,40,0.95)';
   incidentPanel.style.color = '#a4ceff';
-  incidentPanel.style.padding = '25px';
+  incidentPanel.style.padding = '0'; // Remove padding - will add inside
   incidentPanel.style.border = '1px solid #0099ff';
   incidentPanel.style.borderRadius = '12px';
   incidentPanel.style.display = 'none';
@@ -163,10 +315,11 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   incidentPanel.style.boxShadow = '0 0 30px #004488, 0 0 15px #0066cc inset';
   incidentPanel.style.transition = 'all 0.5s cubic-bezier(0.19, 1, 0.22, 1)';
   incidentPanel.style.opacity = '0';
-  incidentPanel.style.overflow = 'auto';
   incidentPanel.style.boxSizing = 'border-box';
+  incidentPanel.style.display = 'flex';
+  incidentPanel.style.flexDirection = 'column';
   
-  // Create incident panel header
+  // Create incident panel header - IMPROVED WITH FIXED POSITION
   const headerBar = document.createElement('div');
   headerBar.className = 'incident-header';
   headerBar.style.position = 'sticky';
@@ -181,7 +334,8 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   headerBar.style.alignItems = 'center';
   headerBar.style.padding = '0 15px';
   headerBar.style.boxSizing = 'border-box';
-  headerBar.style.zIndex = '1';
+  headerBar.style.zIndex = '100';
+  headerBar.style.borderRadius = '12px 12px 0 0'; // Match panel border radius on top
   
   // Add alert icon
   const alertIcon = document.createElement('div');
@@ -214,18 +368,21 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   incidentTitle.style.fontWeight = 'bold';
   incidentTitle.style.color = '#ffcc00';
   incidentTitle.style.textAlign = 'left';
+  incidentTitle.style.overflow = 'hidden';
+  incidentTitle.style.textOverflow = 'ellipsis';
+  incidentTitle.style.whiteSpace = 'nowrap';
+  incidentTitle.style.maxWidth = 'calc(100% - 50px)'; // Ensure space for close button
   titleContainer.appendChild(incidentTitle);
   
   headerBar.appendChild(titleContainer);
-  incidentPanel.appendChild(headerBar);
   
-  // Create close button
+  // Create close button - IMPROVED POSITIONING
   const incidentClose = document.createElement('div');
   incidentClose.textContent = '✕';
   incidentClose.className = 'incident-close-btn';
   incidentClose.style.position = 'absolute';
-  incidentClose.style.top = '12px';
-  incidentClose.style.right = '12px';
+  incidentClose.style.top = '10px';
+  incidentClose.style.right = '15px';
   incidentClose.style.cursor = 'pointer';
   incidentClose.style.color = '#ff7777';
   incidentClose.style.fontSize = '16px';
@@ -236,19 +393,21 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   incidentClose.style.alignItems = 'center';
   incidentClose.style.borderRadius = '50%';
   incidentClose.style.background = 'rgba(80,0,0,0.3)';
+  incidentClose.style.zIndex = '101'; // Higher than header
   
   incidentClose.addEventListener('click', (e) => {
     e.stopPropagation();
     closeIncidentPanel();
   });
   
-  incidentPanel.appendChild(incidentClose);
-  
-  // Create content container
+  // Create content container - IMPROVED STRUCTURE FOR SCROLLING
   const contentContainer = document.createElement('div');
-  contentContainer.style.marginTop = '45px';
-  contentContainer.style.padding = '15px 0 5px 0';
+  contentContainer.style.flex = '1';
+  contentContainer.style.padding = '20px 25px';
+  contentContainer.style.overflowY = 'auto'; // Only the content area scrolls
   contentContainer.style.position = 'relative';
+  contentContainer.style.maxHeight = 'calc(80vh - 45px)'; // Subtract header height
+  contentContainer.style.boxSizing = 'border-box';
   
   const playbookSection = document.createElement('div');
   playbookSection.className = 'playbook-container';
@@ -270,10 +429,15 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
   incidentContent = document.createElement('div');
   incidentContent.style.fontSize = '14px';
   incidentContent.style.lineHeight = '1.6';
+  incidentContent.style.width = '100%'; // Ensure full width
   playbookSection.appendChild(incidentContent);
   
   contentContainer.appendChild(playbookSection);
+  
+  // Assemble the panel in the correct order
+  incidentPanel.appendChild(headerBar);
   incidentPanel.appendChild(contentContainer);
+  incidentPanel.appendChild(incidentClose); // Add close button last so it's on top
   
   document.body.appendChild(incidentPanel);
   
@@ -311,7 +475,7 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
     .step-description {
       max-height: 0;
       overflow: hidden;
-      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+      transition: all 0.3s ease-out;
       background: rgba(0,30,60,0.5);
       border-radius: 0 0 4px 4px;
       margin-top: 0;
@@ -321,12 +485,51 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
       font-size: 13px;
       line-height: 1.5;
     }
-    
+
     .step-description.expanded {
-      max-height: 200px;
+      max-height: 2000px;
+      height: auto;
       padding: 8px 10px;
       margin-top: 5px;
+      margin-bottom: 15px;
       border-left: 2px solid rgba(0,100,200,0.4);
+    }
+    
+    .condition-option {
+      padding: 8px 12px;
+      margin: 8px 0 15px 0;
+      border-radius: 4px;
+      background: rgba(0,50,100,0.4);
+      border: 1px solid rgba(0,100,200,0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .step-container {
+      position: relative;
+      margin-bottom: 5px;
+    }
+
+    /* Improved scrollbar styling */
+    .incident-panel > div:nth-child(2)::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .incident-panel > div:nth-child(2)::-webkit-scrollbar-track {
+      background: rgba(0,20,50,0.3);
+      border-radius: 4px;
+    }
+    
+    .incident-panel > div:nth-child(2)::-webkit-scrollbar-thumb {
+      background: rgba(0,100,200,0.5);
+      border-radius: 4px;
+    }
+    
+    .incident-panel > div:nth-child(2)::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,120,220,0.7);
     }
 
     .search-container {
@@ -403,6 +606,93 @@ function initializeIncidentUI(pauseCallback, cameraCallback) {
       margin-right: 6px;
       vertical-align: middle;
     }
+    
+    .condition-option {
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 4px;
+      background: rgba(0,50,100,0.4);
+      border: 1px solid rgba(0,100,200,0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+    }
+    
+    .condition-option:hover {
+      background: rgba(0,70,140,0.6);
+      border-color: rgba(0,120,230,0.5);
+      box-shadow: 0 0 10px rgba(0,100,255,0.3);
+    }
+    
+    .condition-icon {
+      margin-right: 8px;
+      color: #66ccff;
+    }
+    
+    .condition-title {
+      flex: 1;
+      font-weight: bold;
+      color: #ffffff;
+    }
+    
+    .condition-description {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #b9d8ff;
+    }
+    
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      margin: 5px 0;
+      background: rgba(0,60,120,0.5);
+      border: 1px solid rgba(0,120,220,0.4);
+      border-radius: 4px;
+      color: #66ccff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .link-button:hover {
+      background: rgba(0,80,160,0.7);
+      box-shadow: 0 0 10px rgba(0,120,255,0.4);
+    }
+    
+    .link-icon {
+      margin-right: 6px;
+    }
+    
+    .step-container.condition {
+      border-left: 3px solid #ffcc00;
+    }
+    
+    .step-container.has-links {
+      border-bottom: 1px dashed rgba(0,100,200,0.3);
+      padding-bottom: 10px;
+      margin-bottom: 5px;
+    }
+    
+    .step-links-container {
+      margin-top: 8px;
+      padding: 5px;
+      background: rgba(0,30,70,0.3);
+      border-radius: 4px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .incident-panel {
+        width: 90vw !important;
+        max-height: 85vh !important;
+      }
+      
+      .step-description.expanded {
+        max-height: 250px;
+      }
+    }
   `;
   document.head.appendChild(style);
 
@@ -449,7 +739,17 @@ function createSearchBar() {
       // Search in steps
       if (incident.steps.some(step => 
         step.title.toLowerCase().includes(query) || 
-        step.description.toLowerCase().includes(query))) {
+        (step.description && step.description.toLowerCase().includes(query)) ||
+        // Search in conditions
+        (step.type === 'condition' && step.conditions && 
+         step.conditions.some(condition => 
+           condition.title.toLowerCase().includes(query) || 
+           condition.description.toLowerCase().includes(query))) ||
+        // Search in links
+        (step.links && step.links.some(link => 
+           link.title.toLowerCase().includes(query) || 
+           link.description.toLowerCase().includes(query)))
+      )) {
         return true;
       }
       
@@ -512,8 +812,27 @@ function displaySearchResults(incidents, query) {
     // Find matching step if any
     let matchingStep = '';
     incident.steps.forEach(step => {
-      if (step.title.toLowerCase().includes(query)) {
+      if ((step.title && step.title.toLowerCase().includes(query)) || 
+          (step.description && step.description.toLowerCase().includes(query))) {
         matchingStep = `Step: "${step.title}"`;
+      }
+      // Check conditions too
+      if (step.type === 'condition' && step.conditions) {
+        step.conditions.forEach(condition => {
+          if ((condition.title && condition.title.toLowerCase().includes(query)) ||
+              (condition.description && condition.description.toLowerCase().includes(query))) {
+            matchingStep = `Condition: "${condition.title}"`;
+          }
+        });
+      }
+      // Check links too
+      if (step.links) {
+        step.links.forEach(link => {
+          if ((link.title && link.title.toLowerCase().includes(query)) ||
+              (link.description && link.description.toLowerCase().includes(query))) {
+            matchingStep = `Link: "${link.title}"`;
+          }
+        });
       }
     });
     
@@ -550,7 +869,93 @@ function displaySearchResults(incidents, query) {
   searchResults.style.display = 'block';
 }
 
-// Close incident panel
+// Navigate to step by reference - ENHANCED TO SUPPORT TARGETSTEP
+function navigateToStep(stepRef, targetIndex, targetStep) {
+  if (!currentIncidentData) return;
+  
+  // Handle step references - format: "step:X"
+  if (typeof stepRef === 'string' && stepRef.startsWith('step:')) {
+    const stepIndex = parseInt(stepRef.substring(5)) - 1;
+    if (stepIndex >= 0 && stepIndex < currentIncidentData.steps.length) {
+      // Find the step container - use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        const stepContainer = document.querySelector(`[data-step-index="${stepIndex}"]`);
+        if (stepContainer) {
+          // Scroll to step with better behavior
+          stepContainer.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center'  // Center the element in view
+          });
+          
+          // Highlight the step with a stronger effect
+          stepContainer.style.animation = 'none'; // Reset animation first
+          setTimeout(() => {
+            stepContainer.style.animation = 'step-highlight 0.8s 3';
+            stepContainer.style.boxShadow = '0 0 15px rgba(0,120,255,0.6)';
+            
+            // Reset after animation
+            setTimeout(() => {
+              stepContainer.style.boxShadow = 'none';
+            }, 2400);
+          }, 10);
+          
+          // Expand the step description if it exists
+          const descriptionEl = stepContainer.querySelector('.step-description');
+          if (descriptionEl) {
+            // First close all other expanded descriptions
+            document.querySelectorAll('.step-description.expanded').forEach(desc => {
+              if (desc !== descriptionEl) {
+                desc.classList.remove('expanded');
+              }
+            });
+            
+            // Then expand this one
+            descriptionEl.classList.add('expanded');
+          }
+        }
+      });
+    }
+  } else if (stepRef === 'next') {
+    // No special navigation needed, just continue to next step
+    return;
+  } else {
+    // Navigate to another incident
+    const incidents = window.securityIncidents;
+    let targetIncident = null;
+    
+    // First try to find incident by title
+    targetIncident = incidents.find(inc => inc.title === stepRef);
+    
+    // If not found by title but we have a target index, use that
+    if (!targetIncident && typeof targetIndex === 'number') {
+      targetIncident = incidents.find(inc => inc.index === targetIndex);
+    }
+    
+    if (targetIncident) {
+      // Hide current panel
+      incidentPanel.style.opacity = '0';
+      incidentPanel.style.transform = 'translate(-50%, -50%) scale(0.8)';
+      
+      // Slight delay before showing new panel for transition effect
+      setTimeout(() => {
+        // Find node and camera zoom
+        const brainNodes = window.brainNodes || [];
+        if (targetIncident.index < brainNodes.length) {
+          const targetNode = brainNodes[targetIncident.index];
+          if (targetNode && targetNode.mesh && cameraControlCallback) {
+            // Use the zoomTo method directly without updating originalCameraPosition
+            cameraControlCallback.zoomTo(targetNode.mesh.position);
+          }
+        }
+        
+        // Show the new incident panel with target step
+        showIncidentPanel(targetIncident, targetStep);
+      }, 300);
+    }
+  }
+}
+
+// Close incident panel with improved camera reset
 function closeIncidentPanel() {
   incidentPanel.style.opacity = '0';
   incidentPanel.style.transform = 'translate(-50%, -50%) scale(0.8)';
@@ -564,7 +969,16 @@ function closeIncidentPanel() {
     });
     
     if (isPauseCallback) isPauseCallback(false);
-    if (cameraControlCallback) cameraControlCallback.zoomOut(false);
+    
+    // Always use smooth transition when resetting the camera
+    if (window.resetCameraView) {
+      window.resetCameraView(true); // Use smooth transition
+    } else if (cameraControlCallback) {
+      cameraControlCallback.zoomOut(false); // Fallback to direct zoom out, also smooth
+    }
+    
+    // Reset tracking variables
+    currentIncidentData = null;
   }, 500);
 }
 
@@ -1035,8 +1449,9 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
   return { updateTooltip, onClick };
 }
 
-// Show incident panel
-function showIncidentPanel(incidentData) {
+// Show incident panel with enhanced support for conditions and links
+function showIncidentPanel(incidentData, targetStep) {
+  currentIncidentData = incidentData;
   incidentTitle.textContent = incidentData.title;
   incidentContent.innerHTML = '';
   
@@ -1054,7 +1469,15 @@ function showIncidentPanel(incidentData) {
     stepContainer.style.gap = '10px';
     
     incidentData.steps.forEach((step, index) => {
+      // Different handling based on step type
+      const stepType = step.type || 'standard';
+      
       const stepItem = document.createElement('div');
+      stepItem.className = 'step-container ' + stepType;
+      if (step.links && step.links.length > 0) {
+        stepItem.classList.add('has-links');
+      }
+      stepItem.setAttribute('data-step-index', index);
       stepItem.style.display = 'flex';
       stepItem.style.flexDirection = 'column';
       stepItem.style.borderRadius = '5px';
@@ -1089,40 +1512,193 @@ function showIncidentPanel(incidentData) {
       titleText.style.flex = '1';
       titleText.style.color = '#c4e0ff';
       
-      const descriptionDiv = document.createElement('div');
-      descriptionDiv.className = 'step-description';
-      descriptionDiv.textContent = step.description;
+      // For conditional steps, add a top-down branch icon in blue theme color
+      // For conditional steps, add a hierarchical branch icon in blue theme color
+      if (stepType === 'condition') {
+        const typeIndicator = document.createElement('div');
+        // Create SVG branch icon that exactly matches the image
+        typeIndicator.innerHTML = `<svg width="20" height="18" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle;">
+          <path d="M12,2 L12,9 M5,15 L12,9 L19,15 M5,15 L5,20 M12,15 L12,20 M19,15 L19,20" 
+                stroke="#66CCFF" 
+                fill="none" 
+                stroke-width="2"
+                stroke-linecap="round" />
+          <circle cx="12" cy="2" r="2" fill="#66CCFF" />
+          <circle cx="5" cy="15" r="2" fill="#66CCFF" />
+          <circle cx="12" cy="15" r="2" fill="#66CCFF" />
+          <circle cx="19" cy="15" r="2" fill="#66CCFF" />
+        </svg>`;
+        typeIndicator.title = 'This step has multiple path options';
+        typeIndicator.style.marginLeft = '5px';
+        typeIndicator.style.display = 'inline-block';
+        //linkIndicator.style.verticalAlign = 'middle';
+        titleText.appendChild(typeIndicator);
+      }
+      
+      // For steps with links, add an indicator
+      if (step.links && step.links.length > 0) {
+        const linkIndicator = document.createElement('div');
+        linkIndicator.innerHTML = '🔗';
+        linkIndicator.title = 'This step has links to other playbooks';
+        linkIndicator.style.marginLeft = '5px';
+        linkIndicator.style.fontSize = '10px';
+        linkIndicator.style.display = 'inline-block'; // Make it display inline
+        linkIndicator.style.verticalAlign = 'middle'; // Align vertically with text
+        titleText.appendChild(linkIndicator);
+      }
+      
+      const mainContent = document.createElement('div');
+      
+      // Handle different step types
+      if (stepType === 'standard') {
+        // Standard step with description
+        const descriptionDiv = document.createElement('div');
+        descriptionDiv.className = 'step-description';
+        descriptionDiv.textContent = step.description;
+        
+        stepHeader.addEventListener('click', () => {
+          document.querySelectorAll('.step-description').forEach(desc => {
+            desc.classList.remove('expanded');
+          });
+          
+          descriptionDiv.classList.toggle('expanded');
+        });
+        
+        mainContent.appendChild(descriptionDiv);
+      } else if (stepType === 'condition') {
+        // Conditional step with options
+        const conditionsDiv = document.createElement('div');
+        conditionsDiv.className = 'step-description conditions-container';
+        
+        if (step.conditions && step.conditions.length > 0) {
+          const conditionsDescription = document.createElement('div');
+          conditionsDescription.textContent = step.description || 'Select the appropriate condition:';
+          conditionsDescription.style.marginBottom = '10px';
+          conditionsDescription.style.fontStyle = 'italic';
+          conditionsDiv.appendChild(conditionsDescription);
+          
+          step.conditions.forEach((condition, condIndex) => {
+            const condOption = document.createElement('div');
+            condOption.style.marginBottom = '5px';
+            condOption.className = 'condition-option';
+            
+            const condIcon = document.createElement('span');
+            condIcon.className = 'condition-icon';
+            condIcon.innerHTML = '➤';
+            
+            const condContent = document.createElement('div');
+            condContent.style.flex = '1';
+            
+            const condTitle = document.createElement('div');
+            condTitle.className = 'condition-title';
+            condTitle.textContent = condition.title;
+            
+            const condDescription = document.createElement('div');
+            condDescription.className = 'condition-description';
+            condDescription.textContent = condition.description;
+            
+            condContent.appendChild(condTitle);
+            condContent.appendChild(condDescription);
+            
+            condOption.appendChild(condIcon);
+            condOption.appendChild(condContent);
+            
+            // Add click handler to follow condition
+            condOption.addEventListener('click', () => {
+              // Navigate based on target type, pass along both targetIndex and targetStep
+              if (condition.target) {
+                navigateToStep(condition.target, condition.targetIndex, condition.targetStep);
+              }
+            });
+            
+            conditionsDiv.appendChild(condOption);
+          });
+        }
+        
+        // Show conditions when clicking header
+        stepHeader.addEventListener('click', () => {
+          document.querySelectorAll('.step-description').forEach(desc => {
+            desc.classList.remove('expanded');
+          });
+          
+          conditionsDiv.classList.toggle('expanded');
+        });
+        
+        mainContent.appendChild(conditionsDiv);
+      }
+      
+      // Add links section if applicable
+      if (step.links && step.links.length > 0) {
+        const linksContainer = document.createElement('div');
+        linksContainer.className = 'step-links-container';
+        
+        const linksTitle = document.createElement('div');
+        linksTitle.textContent = 'Related Playbooks:';
+        linksTitle.style.fontSize = '12px';
+        linksTitle.style.fontWeight = 'bold';
+        linksTitle.style.marginBottom = '5px';
+        linksTitle.style.color = '#8eb8ff';
+        linksContainer.appendChild(linksTitle);
+        
+        step.links.forEach(link => {
+          const linkButton = document.createElement('div');
+          linkButton.className = 'link-button';
+          
+          const linkIcon = document.createElement('span');
+          linkIcon.className = 'link-icon';
+          linkIcon.innerHTML = '🔗';
+          
+          const linkText = document.createElement('span');
+          linkText.textContent = link.title;
+          
+          linkButton.appendChild(linkIcon);
+          linkButton.appendChild(linkText);
+          
+          // Add title with description
+          linkButton.title = link.description || 'Navigate to related playbook';
+          
+          // Add click handler, pass along both targetIndex and targetStep
+          linkButton.addEventListener('click', () => {
+            navigateToStep(link.target, link.targetIndex, link.targetStep);
+          });
+          
+          linksContainer.appendChild(linkButton);
+        });
+        
+        mainContent.appendChild(linksContainer);
+      }
       
       stepHeader.appendChild(numberCircle);
       stepHeader.appendChild(titleText);
       
-      stepHeader.addEventListener('click', () => {
-        document.querySelectorAll('.step-description').forEach(desc => {
-          desc.classList.remove('expanded');
-        });
-        
-        descriptionDiv.classList.toggle('expanded');
-      });
-      
       stepItem.appendChild(stepHeader);
-      stepItem.appendChild(descriptionDiv);
+      stepItem.appendChild(mainContent);
       stepContainer.appendChild(stepItem);
     });
     
     incidentContent.appendChild(stepContainer);
   }
   
-  incidentPanel.style.display = 'block';
+  incidentPanel.style.display = 'flex'; // Use flex display
   
   setTimeout(() => {
     incidentPanel.style.opacity = '1';
     incidentPanel.style.transform = 'translate(-50%, -50%) scale(1)';
+    
+    // If a specific target step is specified, navigate to it
+    if (typeof targetStep === 'number' && targetStep >= 0 && targetStep < incidentData.steps.length) {
+      // Small delay to ensure the panel is fully visible first
+      setTimeout(() => {
+        navigateToStep(`step:${targetStep + 1}`);
+      }, 300);
+    }
+    
   }, 10);
   
   if (isPauseCallback) isPauseCallback(true);
 }
 
-// Animation
+// Animation for incident nodes
 function animateIncidentNodes(brainNodes, accumulatedTime) {
   if (!brainNodes || !Array.isArray(brainNodes)) return;
   
@@ -1160,24 +1736,24 @@ function loadIncidents() {
 // Load data from JSON on startup
 document.addEventListener('DOMContentLoaded', function() {
   fetch('/data/security-incidents.json')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('JSON file not found');
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('JSON file not found');
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (Array.isArray(data) && data.length > 0) {
+      window.securityIncidents = data;
+      
+      if (window.brainNodes) {
+        createIncidentNodes(window.brainNodes);
       }
-      return response.json();
-    })
-    .then(data => {
-      if (Array.isArray(data) && data.length > 0) {
-        window.securityIncidents = data;
-        
-        if (window.brainNodes) {
-          createIncidentNodes(window.brainNodes);
-        }
-      }
-    })
-    .catch(error => {
-      console.log('Using default incidents:', error.message);
-    });
+    }
+  })
+  .catch(error => {
+    console.log('Using default incidents:', error.message);
+  });
 });
 
 // Export module
