@@ -305,7 +305,11 @@ function createConfigPanelStructure() {
     const newIncident = {
       title: 'New Incident',
       steps: [
-        { title: 'First step', description: 'Description for first step' }
+        { 
+          title: 'First step', 
+          description: 'Description for first step',
+          type: 'standard'
+        }
       ],
       index: getNextAvailableIndex(),
       color: '#FFCC00' // Default yellow color
@@ -645,6 +649,55 @@ function createIncidentListItem(incident, index) {
   `;
   titleContainer.appendChild(title);
   
+  // Count special step types
+  let conditionCount = 0;
+  let linksCount = 0;
+  
+  incident.steps.forEach(step => {
+    if (step.type === 'condition') conditionCount++;
+    if (step.links && step.links.length) linksCount += step.links.length;
+  });
+  
+  // Add badges for special types
+  const badges = document.createElement('div');
+  badges.style.cssText = `
+    display: flex;
+    gap: 5px;
+    margin-bottom: 3px;
+  `;
+  
+  if (conditionCount > 0) {
+    const conditionBadge = document.createElement('span');
+    conditionBadge.textContent = `${conditionCount} ${conditionCount === 1 ? 'Condition' : 'Conditions'}`;
+    conditionBadge.style.cssText = `
+      font-size: 10px;
+      padding: 2px 5px;
+      background: rgba(255,204,0,0.2);
+      border: 1px solid rgba(255,204,0,0.4);
+      border-radius: 3px;
+      color: #ffcc00;
+    `;
+    badges.appendChild(conditionBadge);
+  }
+  
+  if (linksCount > 0) {
+    const linksBadge = document.createElement('span');
+    linksBadge.textContent = `${linksCount} ${linksCount === 1 ? 'Link' : 'Links'}`;
+    linksBadge.style.cssText = `
+      font-size: 10px;
+      padding: 2px 5px;
+      background: rgba(102,204,255,0.2);
+      border: 1px solid rgba(102,204,255,0.4);
+      border-radius: 3px;
+      color: #66ccff;
+    `;
+    badges.appendChild(linksBadge);
+  }
+  
+  if (conditionCount > 0 || linksCount > 0) {
+    titleContainer.appendChild(badges);
+  }
+  
   const details = document.createElement('div');
   details.textContent = `Node: ${incident.index} • Steps: ${incident.steps.length}`;
   details.style.cssText = `
@@ -735,12 +788,17 @@ function getNextAvailableIndex() {
   return Math.max(...usedIndices) + 1;
 }
 
-// Show the incident editor panel (optimized)
+// Show the incident editor panel with enhanced support for conditions and links
 function showIncidentEditor(incident, isNew) {
   console.log(`Opening incident editor for: ${incident.title} (isNew: ${isNew})`);
   
   // Create a deep copy of the incident to edit
   const editingIncident = JSON.parse(JSON.stringify(incident));
+  
+  // Initialize step types if they don't exist
+  editingIncident.steps.forEach(step => {
+    if (!step.type) step.type = 'standard';
+  });
   
   // Create overlay for modal
   const overlay = document.createElement('div');
@@ -764,7 +822,7 @@ function showIncidentEditor(incident, isNew) {
     background: rgba(0,20,50,0.95);
     border-radius: 8px;
     box-shadow: 0 0 30px rgba(0,120,255,0.4);
-    width: 600px;
+    width: 650px;
     max-width: 90vw;
     max-height: 85vh;
     padding: 25px;
@@ -1042,12 +1100,869 @@ function showIncidentEditor(incident, isNew) {
     border-bottom: 1px solid rgba(0,100,200,0.3);
   `;
   
+  // Add helper text about step types
+  const stepTypesHelper = document.createElement('div');
+  stepTypesHelper.innerHTML = `
+    <p style="margin: 5px 0 15px; font-style: italic; font-size: 13px; color: #8eb8ff;">
+      Use different step types to create interactive playbooks:<br>
+      • <strong>Standard steps</strong> for normal instructions<br>
+      • <strong>Condition steps</strong> for decision points with multiple paths<br>
+      • <strong>Add links</strong> to navigate between different playbooks
+    </p>
+  `;
+  
   // Container for steps
   const stepsContainer = document.createElement('div');
   stepsContainer.id = 'stepsList';
   stepsContainer.style.cssText = `
     margin-bottom: 15px;
   `;
+  
+  // Function to create target step selection controls
+  function createTargetStepSelect(container, targetPlaybook, targetStepValue) {
+    // Create container for target step selection
+    const targetStepContainer = document.createElement('div');
+    targetStepContainer.style.cssText = `
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(0,40,80,0.5);
+      border-radius: 4px;
+      border-left: 2px solid #66CCFF;
+    `;
+    
+    const targetStepLabel = document.createElement('label');
+    targetStepLabel.textContent = 'Target Specific Step';
+    targetStepLabel.style.cssText = `
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      color: #66CCFF;
+      font-weight: bold;
+    `;
+    
+    const targetStepSelect = document.createElement('select');
+    targetStepSelect.style.cssText = `
+      width: 100%;
+      padding: 6px 8px;
+      background: rgba(0,30,60,0.7);
+      border: 1px solid rgba(0,100,200,0.4);
+      border-radius: 3px;
+      color: #ffffff;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+    `;
+    
+    // Default option - first step (step 0)
+    const defaultOption = document.createElement('option');
+    defaultOption.value = "0";
+    defaultOption.textContent = "First step (Default)";
+    targetStepSelect.appendChild(defaultOption);
+    
+    // If we have a valid playbook, add its steps as options
+    if (targetPlaybook && targetPlaybook.steps && targetPlaybook.steps.length > 0) {
+      targetPlaybook.steps.forEach((step, idx) => {
+        if (idx === 0) return; // Skip first step as it's already the default
+        
+        const option = document.createElement('option');
+        option.value = idx.toString();
+        option.textContent = `Step ${idx + 1}: ${step.title}`;
+        targetStepSelect.appendChild(option);
+      });
+    }
+    
+    // Set current selection
+    if (targetStepValue !== undefined && targetStepValue !== null) {
+      targetStepSelect.value = targetStepValue.toString();
+    }
+    
+    targetStepContainer.appendChild(targetStepLabel);
+    targetStepContainer.appendChild(targetStepSelect);
+    
+    container.appendChild(targetStepContainer);
+    
+    return targetStepSelect;
+  }
+  
+  // Function to create condition UI with enhanced target step selection
+  function createConditionUI(container, conditions = [], stepIndex) {
+    const conditionsContainer = document.createElement('div');
+    conditionsContainer.className = 'conditions-editor';
+    conditionsContainer.style.cssText = `
+      background: rgba(0,30,60,0.5);
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 3px solid #ffcc00;
+    `;
+    
+    const conditionsHeader = document.createElement('div');
+    conditionsHeader.textContent = 'Conditions (Decision Points)';
+    conditionsHeader.style.cssText = `
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #ffcc00;
+    `;
+    conditionsContainer.appendChild(conditionsHeader);
+    
+    const conditionsHelp = document.createElement('div');
+    conditionsHelp.textContent = 'Add options for the user to choose from. Each condition can lead to the next step, another step, or a different playbook.';
+    conditionsHelp.style.cssText = `
+      margin-bottom: 15px;
+      font-style: italic;
+      font-size: 12px;
+      color: #8eb8ff;
+    `;
+    conditionsContainer.appendChild(conditionsHelp);
+    
+    // Create list for conditions
+    const conditionsList = document.createElement('div');
+    conditionsList.className = 'conditions-list';
+    conditionsList.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    `;
+    
+    // Function to render conditions
+    function renderConditions() {
+      conditionsList.innerHTML = '';
+      
+      if (!editingIncident.steps[stepIndex].conditions) {
+        editingIncident.steps[stepIndex].conditions = [];
+      }
+      
+      const stepConditions = editingIncident.steps[stepIndex].conditions;
+      
+      stepConditions.forEach((condition, condIndex) => {
+        const condItem = document.createElement('div');
+        condItem.className = 'condition-item';
+        condItem.style.cssText = `
+          background: rgba(0,40,80,0.6);
+          border-radius: 4px;
+          padding: 10px;
+          position: relative;
+        `;
+        
+        const condHeader = document.createElement('div');
+        condHeader.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        `;
+        
+        const condTitle = document.createElement('div');
+        condTitle.textContent = `Condition ${condIndex + 1}`;
+        condTitle.style.cssText = `
+          font-weight: bold;
+          color: #ffffff;
+        `;
+        
+        const deleteCondBtn = document.createElement('button');
+        deleteCondBtn.innerHTML = '🗑️';
+        deleteCondBtn.title = 'Delete Condition';
+        deleteCondBtn.style.cssText = `
+          background: rgba(150,20,20,0.6);
+          border: 1px solid rgba(200,50,50,0.4);
+          border-radius: 4px;
+          width: 24px;
+          height: 24px;
+          cursor: pointer;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        `;
+        
+        deleteCondBtn.addEventListener('click', () => {
+          // Remove condition and re-render
+          stepConditions.splice(condIndex, 1);
+          renderConditions();
+        });
+        
+        condHeader.appendChild(condTitle);
+        condHeader.appendChild(deleteCondBtn);
+        
+        const condContent = document.createElement('div');
+        
+        // Title input
+        const condTitleLabel = document.createElement('label');
+        condTitleLabel.textContent = 'Option Text';
+        condTitleLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+        
+        const condTitleInput = document.createElement('input');
+        condTitleInput.value = condition.title || '';
+        condTitleInput.placeholder = 'Option text (e.g., "Low severity", "Contains malware")';
+        condTitleInput.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          box-sizing: border-box;
+        `;
+        
+        condTitleInput.addEventListener('input', (e) => {
+          condition.title = e.target.value;
+        });
+        
+        // Description input
+        const condDescLabel = document.createElement('label');
+        condDescLabel.textContent = 'Description';
+        condDescLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+        
+        const condDescInput = document.createElement('input');
+        condDescInput.value = condition.description || '';
+        condDescInput.placeholder = 'Brief explanation of this option';
+        condDescInput.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          box-sizing: border-box;
+        `;
+        
+        condDescInput.addEventListener('input', (e) => {
+          condition.description = e.target.value;
+        });
+        
+        // Target type selector
+        const targetTypeLabel = document.createElement('label');
+        targetTypeLabel.textContent = 'When Selected, Go To:';
+        targetTypeLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+        
+        const targetTypeRow = document.createElement('div');
+        targetTypeRow.style.cssText = `
+          display: flex;
+          gap: 10px;
+          margin-bottom: 8px;
+        `;
+        
+        const targetTypeSelect = document.createElement('select');
+        targetTypeSelect.style.cssText = `
+          flex: 1;
+          padding: 6px 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+        `;
+        
+        // Add options for the select
+        const targetOptions = [
+          { value: 'next', text: 'Next Step (Continue)' },
+          { value: 'step', text: 'Jump to Step #' },
+          { value: 'playbook', text: 'Go to Another Playbook' }
+        ];
+        
+        targetOptions.forEach(option => {
+          const optEl = document.createElement('option');
+          optEl.value = option.value;
+          optEl.textContent = option.text;
+          targetTypeSelect.appendChild(optEl);
+        });
+        
+        // Additional inputs based on target type
+        const targetValueContainer = document.createElement('div');
+        targetValueContainer.style.cssText = `
+          flex: 1;
+          display: none;
+        `;
+        
+        const stepNumberInput = document.createElement('input');
+        stepNumberInput.type = 'number';
+        stepNumberInput.min = '1';
+        stepNumberInput.placeholder = 'Step #';
+        stepNumberInput.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          box-sizing: border-box;
+        `;
+        
+        const playbookSelect = document.createElement('select');
+        playbookSelect.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+        `;
+        
+        // Add playbook options
+        const playbooks = window.securityIncidents || [];
+        playbooks.forEach(playbook => {
+          const optEl = document.createElement('option');
+          optEl.value = playbook.title;
+          optEl.dataset.index = playbook.index;
+          optEl.textContent = `${playbook.title} (Node ${playbook.index})`;
+          playbookSelect.appendChild(optEl);
+        });
+        
+        // Variable to hold target step selection element
+        let targetStepSelect = null;
+        
+        // Set current selection based on condition target
+        let currentTargetType = 'next';
+        let selectedPlaybook = null;
+        
+        if (condition.target && condition.target.startsWith('step:')) {
+          currentTargetType = 'step';
+          const stepNum = condition.target.split(':')[1];
+          stepNumberInput.value = stepNum;
+        } else if (condition.target && condition.target !== 'next') {
+          currentTargetType = 'playbook';
+          
+          // Find the target playbook for step selection
+          selectedPlaybook = playbooks.find(p => p.title === condition.target);
+          
+          // Select the playbook in the dropdown
+          const playbookOptions = Array.from(playbookSelect.options);
+          const targetOption = playbookOptions.find(opt => opt.value === condition.target);
+          if (targetOption) {
+            playbookSelect.value = targetOption.value;
+          }
+        }
+        
+        targetTypeSelect.value = currentTargetType;
+        
+        // Function to create or update target step selection UI
+        function createOrUpdateTargetStepUI() {
+          // Remove any existing target step UI first
+          const existingStepUI = targetValueContainer.querySelector('.target-step-container');
+          if (existingStepUI) {
+            targetValueContainer.removeChild(existingStepUI);
+          }
+          
+          // Only show for playbook targets
+          if (targetTypeSelect.value === 'playbook' && selectedPlaybook) {
+            const stepContainer = document.createElement('div');
+            stepContainer.className = 'target-step-container';
+            
+            targetStepSelect = createTargetStepSelect(
+              stepContainer, 
+              selectedPlaybook, 
+              condition.targetStep || 0
+            );
+            
+            // Add event listener to update the condition
+            targetStepSelect.addEventListener('change', () => {
+              condition.targetStep = parseInt(targetStepSelect.value, 10);
+            });
+            
+            targetValueContainer.appendChild(stepContainer);
+          }
+        }
+        
+        // Show appropriate input based on target type
+        function updateTargetInputs() {
+          targetValueContainer.innerHTML = '';
+          
+          if (targetTypeSelect.value === 'step') {
+            targetValueContainer.appendChild(stepNumberInput);
+            targetValueContainer.style.display = 'block';
+            // Reset target step since we're not targeting a playbook
+            delete condition.targetStep;
+          } else if (targetTypeSelect.value === 'playbook') {
+            targetValueContainer.appendChild(playbookSelect);
+            targetValueContainer.style.display = 'block';
+            
+            // Find current target playbook for step selection
+            const selectedOption = playbookSelect.options[playbookSelect.selectedIndex];
+            if (selectedOption) {
+              selectedPlaybook = playbooks.find(p => p.title === selectedOption.value);
+            }
+            
+            // Add target step selection
+            createOrUpdateTargetStepUI();
+          } else {
+            targetValueContainer.style.display = 'none';
+            // Reset target step since we're not targeting a playbook
+            delete condition.targetStep;
+          }
+        }
+        
+        updateTargetInputs();
+        
+        // Update target when selection changes
+        targetTypeSelect.addEventListener('change', () => {
+          updateTargetInputs();
+          
+          // Update condition target
+          if (targetTypeSelect.value === 'next') {
+            condition.target = 'next';
+            delete condition.targetIndex;
+            delete condition.targetStep;
+          } else if (targetTypeSelect.value === 'step') {
+            const stepNum = stepNumberInput.value || '1';
+            condition.target = `step:${stepNum}`;
+            delete condition.targetIndex;
+            delete condition.targetStep;
+          } else if (targetTypeSelect.value === 'playbook') {
+            const selectedOption = playbookSelect.options[playbookSelect.selectedIndex];
+            condition.target = selectedOption.value;
+            condition.targetIndex = parseInt(selectedOption.dataset.index);
+            
+            // Default to first step (0) if not already set
+            if (condition.targetStep === undefined) {
+              condition.targetStep = 0;
+            }
+          }
+        });
+        
+        // Update when step number changes
+        stepNumberInput.addEventListener('input', () => {
+          condition.target = `step:${stepNumberInput.value}`;
+        });
+        
+        // Update when playbook selection changes
+        playbookSelect.addEventListener('change', () => {
+          const selectedOption = playbookSelect.options[playbookSelect.selectedIndex];
+          if (selectedOption) {
+            // Update link target
+            link.target = selectedOption.value;
+            link.targetIndex = parseInt(selectedOption.dataset.index);
+            
+            // Always update link text to match the playbook title
+            linkTextInput.value = selectedOption.value;
+            link.title = selectedOption.value;
+            
+            // Find the playbook for target step selection
+            selectedPlaybook = playbooks.find(p => p.title === selectedOption.value);
+            
+            // Reset to first step when playbook changes
+            link.targetStep = 0;
+            
+            // Update target step UI
+            createOrUpdateTargetStepUI();
+          }
+        });
+        
+        targetTypeRow.appendChild(targetTypeSelect);
+        targetTypeRow.appendChild(targetValueContainer);
+        
+        condContent.appendChild(condTitleLabel);
+        condContent.appendChild(condTitleInput);
+        condContent.appendChild(condDescLabel);
+        condContent.appendChild(condDescInput);
+        condContent.appendChild(targetTypeLabel);
+        condContent.appendChild(targetTypeRow);
+        
+        condItem.appendChild(condHeader);
+        condItem.appendChild(condContent);
+        
+        conditionsList.appendChild(condItem);
+      });
+    }
+    
+    // Add new condition button
+    const addConditionBtn = document.createElement('button');
+    addConditionBtn.textContent = '+ Add Condition';
+    addConditionBtn.style.cssText = `
+      padding: 6px 10px;
+      background: rgba(0,80,160,0.5);
+      color: #ffffff;
+      border: 1px solid rgba(0,120,255,0.4);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      align-self: flex-start;
+      margin-top: 5px;
+      transition: all 0.3s ease;
+    `;
+    
+    addConditionBtn.addEventListener('click', () => {
+      // Add new condition to the step
+      if (!editingIncident.steps[stepIndex].conditions) {
+        editingIncident.steps[stepIndex].conditions = [];
+      }
+      
+      editingIncident.steps[stepIndex].conditions.push({
+        title: 'New Condition',
+        description: 'Description for new condition',
+        target: 'next'
+      });
+      
+      renderConditions();
+    });
+    
+    conditionsContainer.appendChild(conditionsList);
+    conditionsContainer.appendChild(addConditionBtn);
+    container.appendChild(conditionsContainer);
+    
+    renderConditions();
+  }
+  
+  // Function to create links UI with enhanced target step selection
+  function createLinksUI(container, links = [], stepIndex) {
+    const linksContainer = document.createElement('div');
+    linksContainer.className = 'links-editor';
+    linksContainer.style.cssText = `
+      background: rgba(0,30,60,0.5);
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 3px solid #66ccff;
+    `;
+    
+    const linksHeader = document.createElement('div');
+    linksHeader.textContent = 'Playbook Links';
+    linksHeader.style.cssText = `
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #66ccff;
+    `;
+    linksContainer.appendChild(linksHeader);
+    
+    const linksHelp = document.createElement('div');
+    linksHelp.textContent = 'Add optional links to other playbooks that the user can follow.';
+    linksHelp.style.cssText = `
+      margin-bottom: 15px;
+      font-style: italic;
+      font-size: 12px;
+      color: #8eb8ff;
+    `;
+    linksContainer.appendChild(linksHelp);
+    
+    // Create list for links
+    const linksList = document.createElement('div');
+    linksList.className = 'links-list';
+    linksList.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    `;
+    
+    // Function to render links
+    function renderLinks() {
+      linksList.innerHTML = '';
+      
+      if (!editingIncident.steps[stepIndex].links) {
+        editingIncident.steps[stepIndex].links = [];
+      }
+      
+      const stepLinks = editingIncident.steps[stepIndex].links;
+      
+      stepLinks.forEach((link, linkIndex) => {
+        const linkItem = document.createElement('div');
+        linkItem.className = 'link-item';
+        linkItem.style.cssText = `
+          background: rgba(0,40,80,0.6);
+          border-radius: 4px;
+          padding: 10px;
+          position: relative;
+        `;
+        
+        const linkHeader = document.createElement('div');
+        linkHeader.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        `;
+        
+        const linkTitle = document.createElement('div');
+        linkTitle.textContent = `Link ${linkIndex + 1}`;
+        linkTitle.style.cssText = `
+          font-weight: bold;
+          color: #ffffff;
+        `;
+        
+        const deleteLinkBtn = document.createElement('button');
+        deleteLinkBtn.innerHTML = '🗑️';
+        deleteLinkBtn.title = 'Delete Link';
+        deleteLinkBtn.style.cssText = `
+          background: rgba(150,20,20,0.6);
+          border: 1px solid rgba(200,50,50,0.4);
+          border-radius: 4px;
+          width: 24px;
+          height: 24px;
+          cursor: pointer;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        `;
+        
+        deleteLinkBtn.addEventListener('click', () => {
+          // Remove link and re-render
+          stepLinks.splice(linkIndex, 1);
+          renderLinks();
+        });
+        
+        linkHeader.appendChild(linkTitle);
+        linkHeader.appendChild(deleteLinkBtn);
+        
+        const linkContent = document.createElement('div');
+        
+        // Link text input
+        // Link text input - moved after playbook selection
+        const linkTextLabel = document.createElement('label');
+        linkTextLabel.textContent = 'Link Text (leave empty to use playbook title)';
+        linkTextLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+
+        const linkTextInput = document.createElement('input');
+        linkTextInput.value = link.title || '';
+        linkTextInput.placeholder = 'Custom text for link (optional)';
+        linkTextInput.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          box-sizing: border-box;
+        `;
+        
+        linkTextInput.addEventListener('input', (e) => {
+          link.title = e.target.value;
+        });
+        
+        // Description input
+        const linkDescLabel = document.createElement('label');
+        linkDescLabel.textContent = 'Description (shown as tooltip)';
+        linkDescLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+        
+        const linkDescInput = document.createElement('input');
+        linkDescInput.value = link.description || '';
+        linkDescInput.placeholder = 'Brief explanation of this link';
+        linkDescInput.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+          box-sizing: border-box;
+        `;
+        
+        linkDescInput.addEventListener('input', (e) => {
+          link.description = e.target.value;
+        });
+        
+        // Target playbook selector
+        const playbookLabel = document.createElement('label');
+        playbookLabel.textContent = 'Target Playbook';
+        playbookLabel.style.cssText = `
+          display: block;
+          margin-bottom: 3px;
+          font-size: 13px;
+        `;
+        
+        const playbookSelect = document.createElement('select');
+        playbookSelect.style.cssText = `
+          width: 100%;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          background: rgba(0,30,60,0.7);
+          border: 1px solid rgba(0,100,200,0.4);
+          border-radius: 3px;
+          color: #ffffff;
+          font-family: 'Exo 2', sans-serif;
+          font-size: 13px;
+        `;
+        
+        // Variable to hold reference to selected playbook and target step UI
+        let selectedPlaybook = null;
+        let targetStepSelect = null;
+        
+        // Add playbook options
+        const playbooks = window.SecurityIncidents ? window.SecurityIncidents.getIncidents() : [];
+        playbooks.forEach(playbook => {
+          // Skip current incident to prevent circular reference
+          if (playbook.title !== editingIncident.title) {
+            const optEl = document.createElement('option');
+            optEl.value = playbook.title;
+            optEl.dataset.index = playbook.index;
+            optEl.textContent = `${playbook.title} (Node ${playbook.index})`;
+            playbookSelect.appendChild(optEl);
+          }
+        });
+        
+        // Find the target playbook for step selection
+        if (link.target) {
+          selectedPlaybook = playbooks.find(p => p.title === link.target);
+          
+          // Set current selection
+          const playbookOptions = Array.from(playbookSelect.options);
+          const targetOption = playbookOptions.find(opt => opt.value === link.target);
+          if (targetOption) {
+            playbookSelect.value = targetOption.value;
+          }
+        } else if (playbookSelect.options.length > 0) {
+          // Default to first playbook if none selected
+          const defaultPlaybook = playbookSelect.options[0].value;
+          link.target = defaultPlaybook;
+          link.targetIndex = parseInt(playbookSelect.options[0].dataset.index);
+          selectedPlaybook = playbooks.find(p => p.title === defaultPlaybook);
+        }
+        
+        // Function to create or update target step selection UI
+        const targetStepContainer = document.createElement('div');
+        targetStepContainer.className = 'target-step-container';
+        targetStepContainer.style.marginTop = '8px';
+
+        // Function to create or update target step selection UI
+        function createOrUpdateTargetStepUI() {
+          // Clear the container
+          targetStepContainer.innerHTML = '';
+          
+          // Only create if we have a valid playbook
+          if (selectedPlaybook) {
+            targetStepSelect = createTargetStepSelect(
+              targetStepContainer, 
+              selectedPlaybook, 
+              link.targetStep || 0
+            );
+            
+            // Add event listener to update the link
+            targetStepSelect.addEventListener('change', () => {
+              link.targetStep = parseInt(targetStepSelect.value, 10);
+            });
+          }
+        }
+        
+        // Create target step selection UI right after the playbook dropdown
+        createOrUpdateTargetStepUI(linkContent);
+        
+        // Update when selection changes
+        playbookSelect.addEventListener('change', () => {
+          const selectedOption = playbookSelect.options[playbookSelect.selectedIndex];
+          if (selectedOption) {
+            link.target = selectedOption.value;
+            link.targetIndex = parseInt(selectedOption.dataset.index);
+            
+            // Find the target playbook for step selection
+            selectedPlaybook = playbooks.find(p => p.title === selectedOption.value);
+            
+            // Reset to first step when playbook changes
+            link.targetStep = 0;
+            
+            // Update target step UI
+            createOrUpdateTargetStepUI(linkContent);
+          }
+        });
+        
+        linkContent.appendChild(playbookLabel);
+        linkContent.appendChild(playbookSelect);
+        linkContent.appendChild(targetStepContainer); // Add target step container right after playbook select
+        linkContent.appendChild(linkTextLabel);
+        linkContent.appendChild(linkTextInput);
+        linkContent.appendChild(linkDescLabel);
+        linkContent.appendChild(linkDescInput);
+        
+        linkItem.appendChild(linkHeader);
+        linkItem.appendChild(linkContent);
+        
+        linksList.appendChild(linkItem);
+      });
+    }
+    
+    // Add new link button
+    const addLinkBtn = document.createElement('button');
+    addLinkBtn.textContent = '+ Add Link';
+    addLinkBtn.style.cssText = `
+      padding: 6px 10px;
+      background: rgba(0,80,160,0.5);
+      color: #ffffff;
+      border: 1px solid rgba(0,120,255,0.4);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      align-self: flex-start;
+      margin-top: 5px;
+      transition: all 0.3s ease;
+    `;
+    
+    addLinkBtn.addEventListener('click', () => {
+      // Add new link to the step
+      if (!editingIncident.steps[stepIndex].links) {
+        editingIncident.steps[stepIndex].links = [];
+      }
+      
+      // Get available playbooks
+      const availablePlaybooks = window.SecurityIncidents ? 
+                               window.SecurityIncidents.getIncidents().filter(p => p.title !== editingIncident.title) : 
+                               [];
+      
+      // Select first available playbook that's not this one
+      let targetPlaybook = null;
+      let targetIndex = null;
+      
+      if (availablePlaybooks.length > 0) {
+        targetPlaybook = availablePlaybooks[0].title;
+        targetIndex = availablePlaybooks[0].index;
+      }
+      
+      if (!targetPlaybook) {
+        showNotification('No other playbooks available to link to. Create another incident first.', 'error');
+        return;
+      }
+      
+      editingIncident.steps[stepIndex].links.push({
+        title: '', // Use playbook title as default link text
+        description: '', // Start with empty description
+        target: targetPlaybook,
+        targetIndex: targetIndex,
+        targetStep: 0 // Default to first step
+      });
+      
+      renderLinks();
+    });
+    
+    linksContainer.appendChild(linksList);
+    linksContainer.appendChild(addLinkBtn);
+    container.appendChild(linksContainer);
+    
+    renderLinks();
+  }
   
   // Function to render steps
   function renderSteps() {
@@ -1061,7 +1976,7 @@ function showIncidentEditor(incident, isNew) {
         background: rgba(0,40,80,0.5);
         border-radius: 4px;
         padding: 15px;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         position: relative;
       `;
@@ -1117,6 +2032,44 @@ function showIncidentEditor(incident, isNew) {
         editingIncident.steps[index].title = e.target.value;
       });
       
+      // Step type selector
+      const stepTypeLabel = document.createElement('label');
+      stepTypeLabel.textContent = 'Step Type';
+      stepTypeLabel.style.cssText = `
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      `;
+      
+      const stepTypeSelect = document.createElement('select');
+      stepTypeSelect.style.cssText = `
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 15px;
+        background: rgba(0,30,60,0.7);
+        border: 1px solid rgba(0,100,200,0.4);
+        border-radius: 4px;
+        color: #ffffff;
+        font-family: 'Exo 2', sans-serif;
+        font-size: 14px;
+      `;
+      
+      // Step type options
+      const stepTypes = [
+        { value: 'standard', text: 'Standard Step' },
+        { value: 'condition', text: 'Condition Step (Decision Point)' }
+      ];
+      
+      stepTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.value;
+        option.textContent = type.text;
+        stepTypeSelect.appendChild(option);
+      });
+      
+      // Set current type
+      stepTypeSelect.value = step.type || 'standard';
+      
       // Step description
       const stepDescLabel = document.createElement('label');
       stepDescLabel.textContent = 'Step Description';
@@ -1127,7 +2080,7 @@ function showIncidentEditor(incident, isNew) {
       `;
       
       const stepDescInput = document.createElement('textarea');
-      stepDescInput.value = step.description;
+      stepDescInput.value = step.description || '';
       stepDescInput.style.cssText = `
         width: 100%;
         padding: 8px;
@@ -1149,6 +2102,32 @@ function showIncidentEditor(incident, isNew) {
         editingIncident.steps[index].description = e.target.value;
       });
       
+      // Container for dynamic content (conditions, links)
+      const dynamicContent = document.createElement('div');
+      dynamicContent.className = 'step-dynamic-content';
+      
+      // Update dynamic content when step type changes
+      function updateDynamicContent() {
+        dynamicContent.innerHTML = '';
+        
+        // Set step type
+        editingIncident.steps[index].type = stepTypeSelect.value;
+        
+        // Add appropriate content based on step type
+        if (stepTypeSelect.value === 'condition') {
+          createConditionUI(dynamicContent, step.conditions || [], index);
+        }
+        
+        // Always show links option regardless of step type
+        createLinksUI(dynamicContent, step.links || [], index);
+      }
+      
+      // Initial dynamic content
+      updateDynamicContent();
+      
+      // Listen for type changes
+      stepTypeSelect.addEventListener('change', updateDynamicContent);
+      
       // Delete step button
       const deleteStepBtn = document.createElement('button');
       deleteStepBtn.textContent = 'Delete Step';
@@ -1159,7 +2138,7 @@ function showIncidentEditor(incident, isNew) {
         border-radius: 4px;
         padding: 5px 10px;
         cursor: pointer;
-        margin-top: 5px;
+        margin-top: 15px;
         font-family: 'Exo 2', sans-serif;
         font-size: 12px;
         transition: all 0.3s ease;
@@ -1183,8 +2162,11 @@ function showIncidentEditor(incident, isNew) {
       stepItem.appendChild(stepNumber);
       stepItem.appendChild(stepTitleLabel);
       stepItem.appendChild(stepTitleInput);
+      stepItem.appendChild(stepTypeLabel);
+      stepItem.appendChild(stepTypeSelect);
       stepItem.appendChild(stepDescLabel);
       stepItem.appendChild(stepDescInput);
+      stepItem.appendChild(dynamicContent);
       stepItem.appendChild(deleteStepBtn);
       
       stepsFragment.appendChild(stepItem);
@@ -1217,7 +2199,8 @@ function showIncidentEditor(incident, isNew) {
   addStepBtn.addEventListener('click', () => {
     editingIncident.steps.push({
       title: 'New Step',
-      description: 'Description for new step'
+      description: 'Description for new step',
+      type: 'standard'
     });
     
     renderSteps();
@@ -1247,6 +2230,17 @@ function showIncidentEditor(incident, isNew) {
     editingIncident.index = parseInt(nodeIndexInput.value, 10);
     editingIncident.color = colorInput.value;
     
+    // Fill in empty link titles with target playbook title
+editingIncident.steps.forEach(step => {
+  if (step.links && step.links.length > 0) {
+    step.links.forEach(link => {
+      // If title is empty, use the target playbook's title
+      if (!link.title && link.target) {
+        link.title = link.target;
+      }
+    });
+  }
+});
     // Add or update in the incidents array
     if (isNew) {
       // First check if we've reached maximum capacity
@@ -1290,6 +2284,7 @@ function showIncidentEditor(incident, isNew) {
   editorContent.appendChild(nodeIndexLabel);
   editorContent.appendChild(nodeIndexInput);
   editorContent.appendChild(stepsLabel);
+  editorContent.appendChild(stepTypesHelper);
   editorContent.appendChild(stepsContainer);
   editorContent.appendChild(addStepBtn);
   
@@ -1483,82 +2478,4 @@ function exportIncidents() {
   document.body.removeChild(link);
   
   showNotification('Incidents exported successfully!', 'success');
-}
-
-// Create notification toast - optimized version
-function showNotification(message, type = 'info') {
-  // Check if a notification already exists and remove it
-  const existingNotification = document.querySelector('.notification-toast');
-  if (existingNotification) {
-    document.body.removeChild(existingNotification);
-  }
-  
-  // Create notification
-  const notification = document.createElement('div');
-  notification.className = 'notification-toast';
-  notification.textContent = message;
-  
-  // Set base styles
-  let baseStyles = `
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-family: 'Exo 2', sans-serif;
-    font-size: 14px;
-    z-index: 10000;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    opacity: 0;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-  `;
-  
-  // Type-specific styles
-  let typeStyles = '';
-  if (type === 'success') {
-    typeStyles = `
-      background: rgba(0,150,50,0.9);
-      color: #ffffff;
-      border: 1px solid rgba(0,180,80,0.4);
-    `;
-  } else if (type === 'error') {
-    typeStyles = `
-      background: rgba(180,30,30,0.9);
-      color: #ffffff;
-      border: 1px solid rgba(220,50,50,0.4);
-    `;
-  } else {
-    typeStyles = `
-      background: rgba(20,80,150,0.9);
-      color: #ffffff;
-      border: 1px solid rgba(50,120,220,0.4);
-    `;
-  }
-  
-  // Apply all styles at once
-  notification.style.cssText = baseStyles + typeStyles;
-  document.body.appendChild(notification);
-  
-  // Show with animation using requestAnimationFrame for better performance
-  requestAnimationFrame(() => {
-    notification.style.opacity = '1';
-    notification.style.transform = 'translateX(-50%) translateY(0)';
-  });
-  
-  // Hide and remove after 3 seconds
-  const timeout = setTimeout(() => {
-    notification.style.opacity = '0';
-    notification.style.transform = 'translateX(-50%) translateY(20px)';
-    
-    // Clean up the element after animation
-    setTimeout(() => {
-      if (notification.parentNode) {
-        document.body.removeChild(notification);
-      }
-    }, 250);
-  }, 3000);
-  
-  // Store the timeout on the element itself for cleanup
-  notification.closeTimeout = timeout;
 }
