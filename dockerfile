@@ -2,9 +2,15 @@ FROM node:16-alpine
 
 WORKDIR /app
 
-# Install express explicitly regardless of package.json
+# Install all necessary dependencies explicitly
 RUN npm init -y && \
-    npm install express body-parser
+    npm install express body-parser cors
+
+# Copy package.json first to leverage Docker cache
+COPY package.json package-lock.json* ./
+
+# Install npm dependencies
+RUN npm install
 
 # Now copy the application files
 COPY . .
@@ -19,5 +25,5 @@ EXPOSE 3000
 # Switch to non-root user
 USER node
 
-# Start command
+# Start command with error handling
 CMD ["node", "server.js"]
