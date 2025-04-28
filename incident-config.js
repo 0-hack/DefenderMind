@@ -847,13 +847,13 @@ function showIncidentEditor(incident, isNew) {
   `;
   
   const editorTitle = document.createElement('h2');
-  editorTitle.textContent = isNew ? 'Add New Incident' : 'Edit Incident';
+  editorTitle.textContent = isNew ? 'Add New Incident Response Playbook' : 'Edit Incident Response Playbook';
   editorTitle.style.cssText = `
-    margin: 0;
-    color: #66ccff;
-    font-size: 20px;
-    text-shadow: 0 0 10px rgba(0,150,255,0.3);
-  `;
+  margin: 0;
+  color: #66ccff;
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(0,150,255,0.3);
+`;
   
   const closeEditorBtn = document.createElement('button');
   closeEditorBtn.innerHTML = '✕';
@@ -891,7 +891,7 @@ function showIncidentEditor(incident, isNew) {
   
   // Title input
   const titleLabel = document.createElement('label');
-  titleLabel.textContent = 'Incident Title';
+  titleLabel.textContent = 'Playbook Title';
   titleLabel.style.cssText = `
     display: block;
     margin-bottom: 5px;
@@ -916,7 +916,7 @@ function showIncidentEditor(incident, isNew) {
   
   // Color picker
   const colorLabel = document.createElement('label');
-  colorLabel.textContent = 'Incident Color';
+  colorLabel.textContent = 'Incident Node Color';
   colorLabel.style.cssText = `
     display: block;
     margin-bottom: 5px;
@@ -1092,7 +1092,7 @@ function showIncidentEditor(incident, isNew) {
   
   // Steps section
   const stepsLabel = document.createElement('div');
-  stepsLabel.textContent = 'Incident Response Steps';
+  stepsLabel.textContent = 'Playbook Steps';
   stepsLabel.style.cssText = `
     font-weight: bold;
     margin-bottom: 10px;
@@ -1373,7 +1373,6 @@ function showIncidentEditor(incident, isNew) {
         
         // Add options for the select
         const targetOptions = [
-          { value: 'next', text: 'Next Step (Continue)' },
           { value: 'step', text: 'Jump to Step #' },
           { value: 'playbook', text: 'Go to Another Playbook' }
         ];
@@ -1434,9 +1433,10 @@ function showIncidentEditor(incident, isNew) {
         let targetStepSelect = null;
         
         // Set current selection based on condition target
-        let currentTargetType = 'next';
+        let currentTargetType = 'step';
         let selectedPlaybook = null;
-        
+        stepNumberInput.value = '1'; // Default to next step
+
         if (condition.target && condition.target.startsWith('step:')) {
           currentTargetType = 'step';
           const stepNum = condition.target.split(':')[1];
@@ -1453,9 +1453,22 @@ function showIncidentEditor(incident, isNew) {
           if (targetOption) {
             playbookSelect.value = targetOption.value;
           }
+        } else if (condition.target === 'next') {
+          // Handle legacy 'next' target by converting it to the next step
+          currentTargetType = 'step';
+          stepNumberInput.value = (index + 2).toString(); // Current step + 1 (as indexing starts at 0)
         }
         
-        targetTypeSelect.value = currentTargetType;
+        // Make sure the dropdown has a value that exists
+        if (currentTargetType === 'next') {
+          // Handle legacy 'next' value by changing UI to use 'step' 
+          // but keep original target intact until user makes changes
+          targetTypeSelect.value = 'step';
+          // Calculate next step number (current step index + 1)
+          stepNumberInput.value = (index + 2).toString();
+        } else {
+          targetTypeSelect.value = currentTargetType;
+        }
         
         // Function to create or update target step selection UI
         function createOrUpdateTargetStepUI() {
@@ -1486,6 +1499,7 @@ function showIncidentEditor(incident, isNew) {
         }
         
         // Show appropriate input based on target type
+        // Update target inputs based on target type
         function updateTargetInputs() {
           targetValueContainer.innerHTML = '';
           
@@ -1507,11 +1521,19 @@ function showIncidentEditor(incident, isNew) {
             // Add target step selection
             createOrUpdateTargetStepUI();
           } else {
-            targetValueContainer.style.display = 'none';
+            // This shouldn't happen with our new UI, but handle it just in case
+            // Simply default to 'step' for backward compatibility
+            targetTypeSelect.value = 'step';
+            targetValueContainer.appendChild(stepNumberInput);
+            targetValueContainer.style.display = 'block';
+            // Ensure step number is set
+            if (!stepNumberInput.value) {
+              stepNumberInput.value = '1';
+            }
             // Reset target step since we're not targeting a playbook
             delete condition.targetStep;
           }
-        }
+        } 
         
         updateTargetInputs();
         
@@ -1520,11 +1542,7 @@ function showIncidentEditor(incident, isNew) {
           updateTargetInputs();
           
           // Update condition target
-          if (targetTypeSelect.value === 'next') {
-            condition.target = 'next';
-            delete condition.targetIndex;
-            delete condition.targetStep;
-          } else if (targetTypeSelect.value === 'step') {
+          if (targetTypeSelect.value === 'step') {
             const stepNum = stepNumberInput.value || '1';
             condition.target = `step:${stepNum}`;
             delete condition.targetIndex;
@@ -1543,7 +1561,9 @@ function showIncidentEditor(incident, isNew) {
         
         // Update when step number changes
         stepNumberInput.addEventListener('input', () => {
-          condition.target = `step:${stepNumberInput.value}`;
+          // Ensure we have a valid step number
+          const stepNum = stepNumberInput.value || '1';
+          condition.target = `step:${stepNum}`;
         });
         
         // Update when playbook selection changes
@@ -1609,10 +1629,13 @@ function showIncidentEditor(incident, isNew) {
         editingIncident.steps[stepIndex].conditions = [];
       }
       
+      // Default to the next step (current step index + 1)
+      const nextStepNum = stepIndex + 2; // +1 for 0-based index, +1 for next step
+      
       editingIncident.steps[stepIndex].conditions.push({
         title: 'New Condition',
         description: 'Description for new condition',
-        target: 'next'
+        target: `step:${nextStepNum}`
       });
       
       renderConditions();
