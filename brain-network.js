@@ -54,11 +54,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (isPortrait) {
       // In portrait mode, distance is based primarily on width
-      // Narrower screens need camera further back
-      return 40 + (450 - Math.min(screenWidth, 450)) / 10;
+      // Slightly increased distance to see more nodes
+      return 42 + (450 - Math.min(screenWidth, 450)) / 10;
     } else {
-      // In landscape, distance can be closer
-      return 30 + (800 - Math.min(screenWidth, 800)) / 30;
+      // In landscape, distance can be closer but also adjusted
+      return 32 + (800 - Math.min(screenWidth, 800)) / 30;
     }
   }
   
@@ -310,7 +310,7 @@ const cameraControl = {
   // Create brain nodes with better distribution and spacing - MODIFIED with scaling factors
   function createBrainNodes() {
     // Adjust node count based on device
-    const totalNodes = isMobile ? 130 : 162;
+    const totalNodes = isMobile ? 150 : 162;
     
     // Base brain dimensions
     const baseBrainWidth = 13.5;  // Reduced from 15 by 10%
