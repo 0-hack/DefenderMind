@@ -900,6 +900,7 @@ function showIncidentEditor(incident, isNew) {
   
   const titleInput = document.createElement('input');
   titleInput.value = editingIncident.title;
+  titleInput.maxLength = 30; // Add character limit 
   titleInput.style.cssText = `
     width: 100%;
     padding: 10px;
