@@ -2616,48 +2616,30 @@ function saveAllChanges() {
 // Export incidents to a JSON file
 function exportIncidents() {
   try {
-    // First check if we need to save any pending changes
-    if (confirm('Export the current incidents? Make sure you saved any recent changes.')) {
-      console.log("Starting export process...");
-      
-      // Create JSON string directly from memory - more reliable than fetching
-      const jsonString = JSON.stringify(incidentsData, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      
-      // Create download
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'security-incidents.json';
-      
-      // Make link visible briefly to help with browser download blockers
-      link.textContent = "Click here if download doesn't start automatically";
-      link.style.display = "block";
-      link.style.position = "fixed";
-      link.style.top = "10px";
-      link.style.left = "10px";
-      link.style.zIndex = "10000";
-      link.style.background = "rgba(0,100,200,0.8)";
-      link.style.color = "white";
-      link.style.padding = "10px";
-      link.style.borderRadius = "5px";
-      link.style.textDecoration = "none";
-      
-      document.body.appendChild(link);
-      
-      // Try programmatic click
-      link.click();
-      
-      // Clean up after a longer delay
-      setTimeout(() => {
-        if (document.body.contains(link)) {
-          document.body.removeChild(link);
-        }
-        window.URL.revokeObjectURL(url);
-      }, 5000); // Keep the link available for 5 seconds
-      
-      showNotification('Export prepared successfully! Check your downloads folder.', 'success');
-    }
+    console.log("Starting export process...");
+    
+    // Create a direct link to the server endpoint
+    const timestamp = new Date().getTime(); // Add cache-busting parameter
+    const downloadUrl = `/data/security-incidents.json?t=${timestamp}`;
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'security-incidents.json'; // Suggested filename for the browser
+    link.target = '_blank'; // Open in new tab as fallback
+    
+    // Notify the user
+    showNotification('Preparing download...', 'info');
+    
+    // Add to DOM and trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(link);
+      showNotification('Download initiated! Check your downloads folder.', 'success');
+    }, 1000);
   } catch (error) {
     console.error('Export failed:', error);
     showNotification('Export failed: ' + error.message, 'error');
