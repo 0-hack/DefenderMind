@@ -111,12 +111,6 @@ For public displays or shared environments where you don't want users to modify 
 
 This will hide the configuration button entirely, making it impossible for users to modify incident data. The setting is controlled at the server level for improved security.
 
-Alternatively (not suggested), you can use a URL parameter to temporarily hide the configuration interface:
-
-```
-http://localhost:3000/?hideConfig=true
-```
-
 ## Mobile Improvements
 
 - Responsive design that adapts to different screen sizes
