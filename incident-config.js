@@ -13,6 +13,75 @@ let securityIncidentsReadyInterval = null;
 // Constants for node limitations
 const MAX_BRAIN_NODES = 162; // Maximum nodes available (desktop version)
 
+// Function to show notification messages
+function showNotification(message, type = 'info') {
+  // Create notification container if it doesn't exist
+  let notificationContainer = document.getElementById('notification-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    notificationContainer.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      max-width: 300px;
+      z-index: 10000;
+      font-family: 'Exo 2', sans-serif;
+    `;
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    margin-bottom: 10px;
+    padding: 12px 15px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    color: white;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateX(50px);
+  `;
+  
+  // Set color based on notification type
+  if (type === 'success') {
+    notification.style.background = 'rgba(0,120,60,0.9)';
+    notification.style.borderLeft = '4px solid #00cc66';
+  } else if (type === 'error') {
+    notification.style.background = 'rgba(150,30,30,0.9)';
+    notification.style.borderLeft = '4px solid #ff5555';
+  } else {
+    notification.style.background = 'rgba(0,60,120,0.9)';
+    notification.style.borderLeft = '4px solid #33aaff';
+  }
+  
+  notification.textContent = message;
+  
+  // Add to container
+  notificationContainer.appendChild(notification);
+  
+  // Animate in
+  setTimeout(() => {
+    notification.style.opacity = '1';
+    notification.style.transform = 'translateX(0)';
+  }, 10);
+  
+  // Animate out after delay
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(50px)';
+    
+    // Remove from DOM after animation
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
+}
+
 // Wait for DOM content to be loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log("Loading configuration module");
@@ -393,11 +462,14 @@ function createConfigPanelStructure() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
+
+      // In incident-config.js - IMPROVED CODE
       reader.onload = function(event) {
         try {
           const imported = JSON.parse(event.target.result);
+
           if (Array.isArray(imported) && imported.length > 0) {
-            // Basic validation that these are incident objects
+            // Basic validation
             const valid = imported.every(item => 
               typeof item === 'object' && 
               item.title && 
@@ -408,26 +480,62 @@ function createConfigPanelStructure() {
             if (valid) {
               // Check if the import would exceed the maximum node limit
               if (imported.length > MAX_BRAIN_NODES) {
-                showNotification(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`, 'error');
+                alert(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`);
                 // Truncate the imported array to maximum allowed
                 incidentsData = imported.slice(0, MAX_BRAIN_NODES);
               } else {
                 incidentsData = imported;
               }
+
+              // Update the UI
               renderIncidentList();
               updateCapacityIndicator();
-              showNotification('Incidents imported successfully!', 'success');
+              
+              // Save to server
+              fetch('/save-incidents', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(incidentsData)
+              })
+              .then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                  // Update the visualization
+                  if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
+                    window.SecurityIncidents.saveIncidents(incidentsData);
+                  }
+                  showNotification('Incidents imported and saved to server!', 'success');
+                } else {
+                  showNotification('Imported to memory but failed to save to server: ' + data.message, 'error');
+                }
+              })
+              .catch(error => {
+                console.error('Server error:', error);
+                showNotification('Imported to memory but failed to save to server. Check console for details.', 'error');
+              });
             } else {
-              showNotification('Invalid incident data format', 'error');
+              alert('Invalid incident data format. Please check your JSON file.');
             }
           } else {
-            showNotification('No valid data found in file', 'error');
+            alert('No valid incident data found in file.');
           }
         } catch (error) {
-          showNotification('Error parsing JSON file', 'error');
-          console.error(error);
+          console.error('Import parsing error:', error);
+          alert('Error parsing JSON file: ' + error.message);
         }
+
+        // Reset file input to allow same file selection
+        fileInput.value = '';
       };
+
+      reader.onerror = function(error) {
+        console.error('File reading error:', error);
+        alert('Failed to read file: ' + error.message);
+        fileInput.value = '';
+      };
+      
       reader.readAsText(file);
     }
   });
@@ -435,7 +543,16 @@ function createConfigPanelStructure() {
   document.body.appendChild(fileInput);
   
   importBtn.addEventListener('click', function() {
-    fileInput.click();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+   // Reset the file input to ensure change event fires even with same file
+   fileInput.value = '';
+  
+   // Trigger file selection dialog
+   fileInput.click();
   });
   
   importExportContainer.appendChild(exportBtn);
@@ -814,6 +931,8 @@ function showIncidentEditor(incident, isNew) {
     display: flex;
     justify-content: center;
     align-items: center;
+    touch-action: none;
+    overflow: hidden;
   `;
   
   // Create editor panel
@@ -833,6 +952,7 @@ function showIncidentEditor(incident, isNew) {
     box-sizing: border-box;
     color: #c4e0ff;
     font-family: 'Exo 2', sans-serif;
+    overflow: hidden;
   `;
   
   // Editor header
@@ -884,9 +1004,14 @@ function showIncidentEditor(incident, isNew) {
   const editorContent = document.createElement('div');
   editorContent.style.cssText = `
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
     max-height: calc(85vh - 150px);
     padding-right: 10px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    position: relative;
   `;
   
   // Title input
@@ -2452,11 +2577,11 @@ function saveAllChanges() {
     return;
   }
   
+  // First update the visualization
   if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
     const result = window.SecurityIncidents.saveIncidents(incidentsData);
     
     if (result && result.success) {
-      // First update the visualization
       showNotification('Changes applied to visualization', 'success');
       
       // Then save to the JSON file via the server
@@ -2470,36 +2595,66 @@ function saveAllChanges() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          showNotification('File saved successfully!', 'success');
+          showNotification('Changes saved to server!', 'success');
         } else {
-          showNotification('Error saving to file: ' + data.message, 'error');
+          showNotification('Error saving to server: ' + data.message, 'error');
         }
       })
       .catch(error => {
-        console.error('Error:', error);
-        showNotification('Server error. Make sure the server is running.', 'error');
+        console.error('Server error:', error);
+        showNotification('Error saving to server. Check console for details.', 'error');
       });
     } else {
-      showNotification('Error applying changes', 'error');
+      showNotification('Error applying changes to visualization', 'error');
     }
   } else {
     console.error('SecurityIncidents module not available or saveIncidents function not found');
-    showNotification('Error saving changes', 'error');
+    showNotification('Error: SecurityIncidents module not available', 'error');
   }
 }
 
 // Export incidents to a JSON file
+// In incident-config.js - REPLACE the exportIncidents function
 function exportIncidents() {
-  const dataStr = JSON.stringify(incidentsData, null, 2);
-  const dataBlob = new Blob([dataStr], {type: 'application/json'});
-  const url = URL.createObjectURL(dataBlob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'security-incidents.json';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  showNotification('Incidents exported successfully!', 'success');
+  try {
+    // First check if we need to save any pending changes
+    if (confirm('Export the current incidents? Make sure you saved any recent changes.')) {
+      // Fetch the file directly from the server to ensure we get the latest saved version
+      fetch('/data/security-incidents.json')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to fetch incidents from server');
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          // Create a download link
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'security-incidents.json';
+          
+          // Required for Firefox
+          document.body.appendChild(link);
+          
+          // Simulate click
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          }, 100);
+          
+          showNotification('Incidents exported successfully!', 'success');
+        })
+        .catch(error => {
+          console.error('Export error:', error);
+          showNotification('Export failed: ' + error.message, 'error');
+        });
+    }
+  } catch (error) {
+    console.error('Export failed:', error);
+    showNotification('Export failed: ' + error.message, 'error');
+  }
 }
