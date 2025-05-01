@@ -2618,28 +2618,16 @@ function exportIncidents() {
   try {
     console.log("Starting export process...");
     
-    // Create a direct link to the server endpoint
-    const timestamp = new Date().getTime(); // Add cache-busting parameter
-    const downloadUrl = `/data/security-incidents.json?t=${timestamp}`;
+    // First save any pending changes
+    saveAllChanges();
     
-    // Create download link
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'security-incidents.json'; // Suggested filename for the browser
-    link.target = '_blank'; // Open in new tab as fallback
+    // Direct the browser to the download endpoint
+    const downloadUrl = '/download-incidents?t=' + new Date().getTime();
     
-    // Notify the user
-    showNotification('Preparing download...', 'info');
+    // Simply open the download URL directly
+    window.location.href = downloadUrl;
     
-    // Add to DOM and trigger download
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(link);
-      showNotification('Download initiated! Check your downloads folder.', 'success');
-    }, 1000);
+    showNotification('Download started!', 'success');
   } catch (error) {
     console.error('Export failed:', error);
     showNotification('Export failed: ' + error.message, 'error');
