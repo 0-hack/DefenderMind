@@ -916,7 +916,6 @@ const cameraControl = {
     // Add specific mobile controls for pinch zoom
     if (isMobile) {
       setupMobilePinchZoom();
-      createResetButton();
     }
     
     // Handle window resize
@@ -1228,92 +1227,6 @@ const cameraControl = {
         e.touches[0].clientY - e.touches[1].clientY
       );
     }
-  }
-  
-  // Create reset view button for mobile
-  function createResetButton() {
-    if (document.getElementById('resetViewButton')) return;
-    
-    const resetBtn = document.createElement('button');
-    resetBtn.id = 'resetViewButton';
-    resetBtn.textContent = 'Reset View';
-    resetBtn.style.position = 'fixed';
-    resetBtn.style.bottom = '15px';
-    resetBtn.style.left = '0';
-    resetBtn.style.right = '0';
-    resetBtn.style.margin = '0 auto';
-    resetBtn.style.width = '150px';
-    resetBtn.style.zIndex = '9000';
-    resetBtn.style.background = 'rgba(0, 20, 50, 0.8)';
-    resetBtn.style.color = '#66ccff';
-    resetBtn.style.border = '1px solid rgba(0, 100, 200, 0.4)';
-    resetBtn.style.borderRadius = '20px';
-    resetBtn.style.padding = '10px 12px';
-    resetBtn.style.fontFamily = "'Exo 2', sans-serif";
-    resetBtn.style.fontSize = '14px';
-    resetBtn.style.cursor = 'pointer';
-    resetBtn.style.fontWeight = 'bold';
-    resetBtn.style.boxShadow = '0 0 15px rgba(0, 100, 255, 0.3)';
-    
-    resetBtn.addEventListener('click', function() {
-      // Reset rotation state
-      targetRotationX = 0;
-      targetRotationY = 0;
-      currentRotationX = 0;
-      currentRotationY = 0;
-      
-      // Reset scene rotation immediately
-      scene.rotation.x = 0;
-      scene.rotation.y = 0;
-      
-      // Reset velocities and inertia
-      rotationVelocityX = 0;
-      rotationVelocityY = 0;
-      rotationInertiaActive = false;
-      
-      // Re-enable auto-rotation
-      enableAutoRotation = true;
-      
-      // Reset camera position
-      const newIsPortrait = window.innerHeight > window.innerWidth;
-      camera.position.z = calculateCameraDistance();
-      camera.position.y = 0;
-      camera.position.x = 0;
-      camera.updateProjectionMatrix();
-      
-      // Recalculate and apply scaling
-      const newScaleFactor = calculateScaleFactor();
-      
-      // Center appropriately
-      scene.position.y = newIsPortrait ? 2 : 0;
-      
-      // Update node positions if we have original positions stored
-      if (originalNodePositions.length > 0 && brainNodes.length > 0) {
-        brainNodes.forEach((node, index) => {
-          if (node.mesh && originalNodePositions[index]) {
-            const original = originalNodePositions[index];
-            
-            // Apply new scale
-            node.mesh.position.x = original.x * newScaleFactor.x;
-            node.mesh.position.y = original.y * newScaleFactor.y;
-            
-            // Update node's position property
-            if (node.position) {
-              node.position.x = node.mesh.position.x;
-              node.position.y = node.mesh.position.y;
-            }
-          }
-        });
-      }
-      
-      // Give visual feedback
-      this.textContent = "✓ View Reset";
-      setTimeout(() => {
-        this.textContent = "Reset View";
-      }, 1000);
-    });
-    
-    document.body.appendChild(resetBtn);
   }
   
   // Start everything
