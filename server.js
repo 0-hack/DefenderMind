@@ -65,20 +65,21 @@ app.post('/save-incidents', (req, res) => {
 });
 
 // Route to load incidents for first load
-app.get('/data/security-incidents.json', (req, res) => {
+app.get('/download-incidents', (req, res) => {
   try {
-    // Check if file exists
     if (fs.existsSync(incidentsFilePath)) {
-      // Read from file
-      const data = fs.readFileSync(incidentsFilePath, 'utf8');
-      res.type('application/json').send(data);
+      // Set headers for attachment download
+      res.setHeader('Content-Disposition', 'attachment; filename=security-incidents.json');
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Stream the file directly
+      const fileStream = fs.createReadStream(incidentsFilePath);
+      fileStream.pipe(res);
     } else {
-      // Use default incidents if file doesn't exist
-      fs.writeFileSync(incidentsFilePath, JSON.stringify(defaultIncidents, null, 2));
-      res.json(defaultIncidents);
+      res.status(404).json({ success: false, message: 'Incidents file not found' });
     }
   } catch (err) {
-    console.error('Error loading incidents:', err);
+    console.error('Error downloading incidents:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
