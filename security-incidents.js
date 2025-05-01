@@ -980,12 +980,13 @@ panelOverlay.addEventListener('click', (e) => {
     }
 
     .step-description.expanded {
-      max-height: 2000px;
+      max-height: none;
       height: auto;
       padding: 8px 10px;
       margin-top: 5px;
       margin-bottom: 15px;
       border-left: 2px solid rgba(0,100,200,0.4);
+      overflow-y: visible;
     }
     
     .condition-option {
@@ -1183,7 +1184,8 @@ panelOverlay.addEventListener('click', (e) => {
       }
       
       .step-description.expanded {
-        max-height: 250px;
+        max-height: none; // Allow full content viewing
+        overflow-y: visible;
       }
     }
   `;
@@ -2002,7 +2004,7 @@ function hexToRgba(hex, alpha = 1) {
 function enhanceIncidentLabels() {
   // Add enhanced styling for node labels
   const labelStyle = document.createElement('style');
-  labelStyle.textContent = `
+    labelStyle.textContent = `
     .node-label {
       transition: all 0.2s ease-out;
       padding: 8px 12px; /* Larger padding for better touch targets */
@@ -2021,13 +2023,17 @@ function enhanceIncidentLabels() {
       backdrop-filter: blur(2px);
       -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
       touch-action: manipulation; /* Optimize for touch */
+      max-width: 85vw; /* Prevent labels from extending beyond screen */
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     
     /* Mobile-specific enhancements */
     @media (max-width: 768px) {
       .node-label {
-        padding: 8px 12px;
-        font-size: 14px; /* Larger font for mobile */
+        padding: 6px 10px;
+        font-size: 8px; /* Smaller font for mobile */
+        max-width: 60vw; /* More restrictive width on mobile */
       }
     }
     
