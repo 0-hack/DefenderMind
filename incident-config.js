@@ -460,99 +460,123 @@ function createConfigPanelStructure() {
   
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-
-      // In incident-config.js - IMPROVED CODE
-      reader.onload = function(event) {
-        try {
-          const imported = JSON.parse(event.target.result);
-
-          if (Array.isArray(imported) && imported.length > 0) {
-            // Basic validation
-            const valid = imported.every(item => 
-              typeof item === 'object' && 
-              item.title && 
-              typeof item.index === 'number' &&
-              Array.isArray(item.steps)
-            );
-            
-            if (valid) {
-              // Check if the import would exceed the maximum node limit
-              if (imported.length > MAX_BRAIN_NODES) {
-                alert(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`);
-                // Truncate the imported array to maximum allowed
-                incidentsData = imported.slice(0, MAX_BRAIN_NODES);
-              } else {
-                incidentsData = imported;
-              }
-
-              // Update the UI
-              renderIncidentList();
-              updateCapacityIndicator();
-              
-              // Save to server
-              fetch('/save-incidents', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(incidentsData)
-              })
-              .then(response => response.json())
-              .then(data => {
-                if (data.success) {
-                  // Update the visualization
-                  if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
-                    window.SecurityIncidents.saveIncidents(incidentsData);
-                  }
-                  showNotification('Incidents imported and saved to server!', 'success');
-                } else {
-                  showNotification('Imported to memory but failed to save to server: ' + data.message, 'error');
-                }
-              })
-              .catch(error => {
-                console.error('Server error:', error);
-                showNotification('Imported to memory but failed to save to server. Check console for details.', 'error');
-              });
-            } else {
-              alert('Invalid incident data format. Please check your JSON file.');
-            }
-          } else {
-            alert('No valid incident data found in file.');
-          }
-        } catch (error) {
-          console.error('Import parsing error:', error);
-          alert('Error parsing JSON file: ' + error.message);
-        }
-
-        // Reset file input to allow same file selection
-        fileInput.value = '';
-      };
-
-      reader.onerror = function(error) {
-        console.error('File reading error:', error);
-        alert('Failed to read file: ' + error.message);
-        fileInput.value = '';
-      };
-      
-      reader.readAsText(file);
+    if (!file) return;
+    
+    // Validate file type
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      showNotification('Please select a JSON file', 'error');
+      return;
     }
+    
+    // Show loading notification
+    showNotification('Reading file...', 'info');
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+      try {
+        // Parse the JSON data
+        const imported = JSON.parse(event.target.result);
+        
+        if (Array.isArray(imported) && imported.length > 0) {
+          // Basic validation
+          const valid = imported.every(item => 
+            typeof item === 'object' && 
+            item.title && 
+            typeof item.index === 'number' &&
+            Array.isArray(item.steps)
+          );
+          
+          if (valid) {
+            // Show confirmation dialog
+            const confirmOverwrite = confirm(`This will replace ${imported.length} incident(s) in your configuration. Continue?`);
+            
+            if (!confirmOverwrite) {
+              showNotification('Import cancelled', 'info');
+              return;
+            }
+            
+            // Check if the import would exceed the maximum node limit
+            if (imported.length > MAX_BRAIN_NODES) {
+              alert(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`);
+              // Truncate the imported array to maximum allowed
+              incidentsData = imported.slice(0, MAX_BRAIN_NODES);
+            } else {
+              incidentsData = imported;
+            }
+  
+            // Update the UI
+            renderIncidentList();
+            updateCapacityIndicator();
+            
+            // Save to server
+            showNotification('Saving imported data...', 'info');
+            
+            fetch('/save-incidents', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(incidentsData)
+            })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+              }
+              return response.json();
+            })
+            .then(data => {
+              if (data.success) {
+                // Update the visualization
+                if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
+                  window.SecurityIncidents.saveIncidents(incidentsData);
+                }
+                showNotification(`Successfully imported ${incidentsData.length} incident(s)!`, 'success');
+              } else {
+                throw new Error(data.message || 'Unknown server error');
+              }
+            })
+            .catch(error => {
+              console.error('Server error:', error);
+              showNotification(`Import error: ${error.message}`, 'error');
+            });
+          } else {
+            showNotification('Invalid incident data format. Please check your JSON file.', 'error');
+          }
+        } else {
+          showNotification('No valid incident data found in file.', 'error');
+        }
+      } catch (error) {
+        console.error('Import parsing error:', error);
+        showNotification(`JSON parsing error: ${error.message}`, 'error');
+      }
+  
+      // Reset file input to allow same file selection
+      fileInput.value = '';
+    };
+  
+    reader.onerror = function(error) {
+      console.error('File reading error:', error);
+      showNotification(`Failed to read file: ${error.message}`, 'error');
+      fileInput.value = '';
+    };
+    
+    reader.readAsText(file);
   });
   
   document.body.appendChild(fileInput);
   
-  importBtn.addEventListener('click', function() {
+  importBtn.addEventListener('click', function(e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
 
-   // Reset the file input to ensure change event fires even with same file
-   fileInput.value = '';
+    // Reset the file input to ensure change event fires even with same file
+    fileInput.value = '';
   
-   // Trigger file selection dialog
-   fileInput.click();
+    // Trigger file selection dialog
+    fileInput.click();
   });
   
   importExportContainer.appendChild(exportBtn);
