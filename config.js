@@ -95,241 +95,115 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
-// Load incidents from server
+// Reload incidents from global state
+function reloadIncidentsFromGlobal() {
+  console.log("Reloading incidents from global state");
+  
+  if (window.securityIncidents && Array.isArray(window.securityIncidents)) {
+    console.log(`Found ${window.securityIncidents.length} incidents in global state`);
+    // Make a fresh copy of the global state
+    incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
+    
+    // Force UI to update
+    const incidentList = document.getElementById('incidentList');
+    incidentList.innerHTML = '';
+    
+    // Use setTimeout to ensure DOM updates
+    setTimeout(() => {
+      console.log("Rendering incident list after reload");
+      renderIncidentList();
+      updateCapacityIndicator();
+    }, 50);
+    
+    return true;
+  } else {
+    console.warn("No global incidents found to reload from");
+    return false;
+  }
+}
+
+// Load incidents from server - always prioritize server data
 function loadIncidents() {
-  console.log("Loading incidents");
+  console.log("Loading incidents for config page");
   showNotification('Loading incidents...', 'info');
   
-  // Clear existing data first
-  incidentsData = [];
-  
-  // Check if securityIncidents is available (loaded from security-incidents.js)
-  if (window.securityIncidents && Array.isArray(window.securityIncidents) && window.securityIncidents.length > 0) {
-    console.log(`Found ${window.securityIncidents.length} incidents in global state`);
-    // Make a deep copy to avoid reference issues
-    incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
-    console.log(`Loaded ${incidentsData.length} incidents from global state`);
-    renderIncidentList();
-    updateCapacityIndicator();
-    showNotification('Incidents loaded successfully', 'success');
-  } else {
-    console.log("No global incidents found, fetching from server");
-    // If not available, fetch from server
-    fetch('/data/security-incidents.json')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Failed to load incidents');
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          incidentsData = data;
-          // Also update global state
-          window.securityIncidents = JSON.parse(JSON.stringify(data));
-          console.log(`Loaded ${incidentsData.length} incidents from server`);
-          renderIncidentList();
-          updateCapacityIndicator();
-          showNotification('Incidents loaded successfully', 'success');
-        } else {
-          throw new Error('Invalid data format received from server');
-        }
-      })
-      .catch(error => {
-        console.error('Error loading incidents:', error);
-        showNotification('Error loading incidents: ' + error.message, 'error');
-      });
-  }
-}
-
-// Render the list of incidents
-function renderIncidentList() {
+  // First, clear the list to show loading state
   const incidentList = document.getElementById('incidentList');
-  incidentList.innerHTML = '';
-  
-  if (incidentsData.length === 0) {
-    const emptyMessage = document.createElement('div');
-    emptyMessage.textContent = 'No incidents configured. Add one to get started!';
-    emptyMessage.style.cssText = `
+  if (incidentList) {
+    incidentList.innerHTML = '';
+    
+    // Add a loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.textContent = 'Loading incidents...';
+    loadingMsg.style.cssText = `
       text-align: center;
       padding: 20px;
-      color: #8eb8ff;
+      color: #66ccff;
       font-style: italic;
     `;
-    incidentList.appendChild(emptyMessage);
-    return;
+    incidentList.appendChild(loadingMsg);
   }
   
-  // Sort by index for consistency
-  const sortedIncidents = [...incidentsData].sort((a, b) => a.index - b.index);
-  
-  sortedIncidents.forEach((incident, index) => {
-    const item = createIncidentListItem(incident, index);
-    incidentList.appendChild(item);
-  });
-}
-
-// Create a single incident list item
-function createIncidentListItem(incident, index) {
-  const item = document.createElement('div');
-  item.className = 'incident-item';
-  
-  // Left side - incident info
-  const infoContainer = document.createElement('div');
-  infoContainer.style.cssText = `
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-  `;
-  
-  // Add color indicator
-  const colorIndicator = document.createElement('div');
-  colorIndicator.style.cssText = `
-    width: 16px;
-    height: 16px;
-    background-color: ${incident.color || '#FFCC00'};
-    border-radius: 50%;
-    margin-right: 10px;
-    box-shadow: 0 0 8px rgba(255,255,255,0.2);
-  `;
-  infoContainer.appendChild(colorIndicator);
-  
-  const titleContainer = document.createElement('div');
-  titleContainer.style.flex = '1';
-  
-  const title = document.createElement('div');
-  title.textContent = incident.title;
-  title.style.cssText = `
-    font-size: 16px;
-    font-weight: bold;
-    color: #ffffff;
-    margin-bottom: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  `;
-  titleContainer.appendChild(title);
-  
-  // Count special step types
-  let conditionCount = 0;
-  let linksCount = 0;
-  
-  incident.steps.forEach(step => {
-    if (step.type === 'condition') conditionCount++;
-    if (step.links && step.links.length) linksCount += step.links.length;
-  });
-  
-  // Add badges for special types
-  const badges = document.createElement('div');
-  badges.style.cssText = `
-    display: flex;
-    gap: 5px;
-    margin-bottom: 3px;
-  `;
-  
-  if (conditionCount > 0) {
-    const conditionBadge = document.createElement('span');
-    conditionBadge.textContent = `${conditionCount} ${conditionCount === 1 ? 'Condition' : 'Conditions'}`;
-    conditionBadge.style.cssText = `
-      font-size: 10px;
-      padding: 2px 5px;
-      background: rgba(255,204,0,0.2);
-      border: 1px solid rgba(255,204,0,0.4);
-      border-radius: 3px;
-      color: #ffcc00;
-    `;
-    badges.appendChild(conditionBadge);
-  }
-  
-  if (linksCount > 0) {
-    const linksBadge = document.createElement('span');
-    linksBadge.textContent = `${linksCount} ${linksCount === 1 ? 'Link' : 'Links'}`;
-    linksBadge.style.cssText = `
-      font-size: 10px;
-      padding: 2px 5px;
-      background: rgba(102,204,255,0.2);
-      border: 1px solid rgba(102,204,255,0.4);
-      border-radius: 3px;
-      color: #66ccff;
-    `;
-    badges.appendChild(linksBadge);
-  }
-  
-  if (conditionCount > 0 || linksCount > 0) {
-    titleContainer.appendChild(badges);
-  }
-  
-  const details = document.createElement('div');
-  details.textContent = `Node: ${incident.index} • Steps: ${incident.steps.length}`;
-  details.style.cssText = `
-    font-size: 12px;
-    color: #8eb8ff;
-  `;
-  titleContainer.appendChild(details);
-  
-  infoContainer.appendChild(titleContainer);
-  
-  // Right side - action buttons
-  const actionContainer = document.createElement('div');
-  actionContainer.style.cssText = `
-    display: flex;
-    gap: 5px;
-  `;
-  
-  const editBtn = document.createElement('button');
-  editBtn.innerHTML = '✏️';
-  editBtn.title = 'Edit';
-  editBtn.style.cssText = `
-    width: 30px;
-    height: 30px;
-    background: rgba(0,80,160,0.6);
-    border: 1px solid rgba(0,120,240,0.3);
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  `;
-  
-  editBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    editIncident(incident);
-  });
-  
-  const deleteBtn = document.createElement('button');
-  deleteBtn.innerHTML = '🗑️';
-  deleteBtn.title = 'Delete';
-  deleteBtn.style.cssText = `
-    width: 30px;
-    height: 30px;
-    background: rgba(160,0,0,0.6);
-    border: 1px solid rgba(240,0,0,0.3);
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  `;
-  
-  deleteBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    confirmDeletion(index);
-  });
-  
-  actionContainer.appendChild(editBtn);
-  actionContainer.appendChild(deleteBtn);
-  
-  // Add all elements to item
-  item.appendChild(infoContainer);
-  item.appendChild(actionContainer);
-  
-  // Add click handler to entire item
-  item.addEventListener('click', () => {
-    editIncident(incident);
-  });
-  
-  return item;
+  // Always fetch from the server first to get the latest data
+  fetch('/load-incidents')
+    .then(response => {
+      if (!response.ok) {
+        // If server endpoint fails, fall back to the standard file endpoint
+        return fetch('/data/security-incidents.json');
+      }
+      return response;
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to load incidents from server');
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        console.log(`Loaded ${data.length} incidents from server`);
+        
+        // Make a deep copy to avoid reference issues
+        incidentsData = JSON.parse(JSON.stringify(data));
+        
+        // Also update the global state
+        if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+          console.log("Updating global security incidents");
+          window.SecurityIncidents.saveIncidents(incidentsData);
+        } else {
+          window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
+        }
+        
+        // Render the incidents list
+        renderIncidentList();
+        updateCapacityIndicator();
+        showNotification('Incidents loaded successfully', 'success');
+      } else {
+        throw new Error('Invalid data format or empty array');
+      }
+    })
+    .catch(error => {
+      console.error('Error loading incidents:', error);
+      
+      // Fall back to global state if server load fails
+      if (window.securityIncidents && Array.isArray(window.securityIncidents) && window.securityIncidents.length > 0) {
+        console.log(`Falling back to ${window.securityIncidents.length} incidents from global state`);
+        
+        // Make a deep copy to avoid reference issues
+        incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
+        
+        // Render the incidents list
+        renderIncidentList();
+        updateCapacityIndicator();
+        showNotification('Loaded incidents from application state', 'info');
+      } else {
+        showNotification('Error loading incidents: ' + error.message, 'error');
+        // Clear loading message if any
+        if (incidentList) {
+          incidentList.innerHTML = '';
+        }
+      }
+    });
 }
 
 // Handle file upload
@@ -545,6 +419,320 @@ function editIncident(incident) {
   // Create a deep copy to avoid modifying the original until save
   selectedIncident = JSON.parse(JSON.stringify(incident));
   showIncidentEditor();
+}
+
+// Render the list of incidents
+function renderIncidentList() {
+  const incidentList = document.getElementById('incidentList');
+  incidentList.innerHTML = '';
+  
+  if (incidentsData.length === 0) {
+    const emptyMessage = document.createElement('div');
+    emptyMessage.textContent = 'No incidents configured. Add one to get started!';
+    emptyMessage.style.cssText = `
+      text-align: center;
+      padding: 20px;
+      color: #8eb8ff;
+      font-style: italic;
+    `;
+    incidentList.appendChild(emptyMessage);
+    return;
+  }
+  
+  // Sort by index for consistency
+  const sortedIncidents = [...incidentsData].sort((a, b) => a.index - b.index);
+  
+  sortedIncidents.forEach((incident, index) => {
+    const item = createIncidentListItem(incident, index);
+    incidentList.appendChild(item);
+  });
+}
+
+// Create a single incident list item
+function createIncidentListItem(incident, index) {
+  const item = document.createElement('div');
+  item.className = 'incident-item';
+  
+  // Left side - incident info
+  const infoContainer = document.createElement('div');
+  infoContainer.style.cssText = `
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  `;
+  
+  // Add color indicator
+  const colorIndicator = document.createElement('div');
+  colorIndicator.style.cssText = `
+    width: 16px;
+    height: 16px;
+    background-color: ${incident.color || '#FFCC00'};
+    border-radius: 50%;
+    margin-right: 10px;
+    box-shadow: 0 0 8px rgba(255,255,255,0.2);
+  `;
+  infoContainer.appendChild(colorIndicator);
+  
+  const titleContainer = document.createElement('div');
+  titleContainer.style.flex = '1';
+  
+  const title = document.createElement('div');
+  title.textContent = incident.title;
+  title.style.cssText = `
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  `;
+  titleContainer.appendChild(title);
+  
+  // Count special step types
+  let conditionCount = 0;
+  let linksCount = 0;
+  
+  incident.steps.forEach(step => {
+    if (step.type === 'condition') conditionCount++;
+    if (step.links && step.links.length) linksCount += step.links.length;
+  });
+  
+  // Add badges for special types
+  const badges = document.createElement('div');
+  badges.style.cssText = `
+    display: flex;
+    gap: 5px;
+    margin-bottom: 3px;
+  `;
+  
+  if (conditionCount > 0) {
+    const conditionBadge = document.createElement('span');
+    conditionBadge.textContent = `${conditionCount} ${conditionCount === 1 ? 'Condition' : 'Conditions'}`;
+    conditionBadge.style.cssText = `
+      font-size: 10px;
+      padding: 2px 5px;
+      background: rgba(255,204,0,0.2);
+      border: 1px solid rgba(255,204,0,0.4);
+      border-radius: 3px;
+      color: #ffcc00;
+    `;
+    badges.appendChild(conditionBadge);
+  }
+  
+  if (linksCount > 0) {
+    const linksBadge = document.createElement('span');
+    linksBadge.textContent = `${linksCount} ${linksCount === 1 ? 'Link' : 'Links'}`;
+    linksBadge.style.cssText = `
+      font-size: 10px;
+      padding: 2px 5px;
+      background: rgba(102,204,255,0.2);
+      border: 1px solid rgba(102,204,255,0.4);
+      border-radius: 3px;
+      color: #66ccff;
+    `;
+    badges.appendChild(linksBadge);
+  }
+  
+  if (conditionCount > 0 || linksCount > 0) {
+    titleContainer.appendChild(badges);
+  }
+  
+  const details = document.createElement('div');
+  details.textContent = `Node: ${incident.index} • Steps: ${incident.steps.length}`;
+  details.style.cssText = `
+    font-size: 12px;
+    color: #8eb8ff;
+  `;
+  titleContainer.appendChild(details);
+  
+  infoContainer.appendChild(titleContainer);
+  
+  // Right side - action buttons
+  const actionContainer = document.createElement('div');
+  actionContainer.style.cssText = `
+    display: flex;
+    gap: 5px;
+  `;
+  
+  const editBtn = document.createElement('button');
+  editBtn.innerHTML = '✏️';
+  editBtn.title = 'Edit';
+  editBtn.style.cssText = `
+    width: 30px;
+    height: 30px;
+    background: rgba(0,80,160,0.6);
+    border: 1px solid rgba(0,120,240,0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+  
+  editBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    editIncident(incident);
+  });
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.innerHTML = '🗑️';
+  deleteBtn.title = 'Delete';
+  deleteBtn.style.cssText = `
+    width: 30px;
+    height: 30px;
+    background: rgba(160,0,0,0.6);
+    border: 1px solid rgba(240,0,0,0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    confirmDeletion(index);
+  });
+  
+  actionContainer.appendChild(editBtn);
+  actionContainer.appendChild(deleteBtn);
+  
+  // Add all elements to item
+  item.appendChild(infoContainer);
+  item.appendChild(actionContainer);
+  
+  // Add click handler to entire item
+  item.addEventListener('click', () => {
+    editIncident(incident);
+  });
+  
+  return item;
+}
+
+// Save the current incident
+function saveIncident() {
+  // Validate first
+  if (!selectedIncident.title) {
+    showNotification('Incident title is required', 'error');
+    return false;
+  }
+  
+  // Fill in empty link titles with target playbook title
+  selectedIncident.steps.forEach(step => {
+    if (step.links && step.links.length > 0) {
+      step.links.forEach(link => {
+        // If title is empty, use the target playbook's title
+        if (!link.title && link.target) {
+          link.title = link.target;
+        }
+      });
+    }
+  });
+  
+  if (isNewIncident) {
+    // Add to incidents
+    incidentsData.push(selectedIncident);
+  } else {
+    // Update existing
+    const index = incidentsData.findIndex(inc => inc.title === selectedIncident.title);
+    if (index !== -1) {
+      incidentsData[index] = selectedIncident;
+    } else {
+      // If title changed, add as new
+      incidentsData.push(selectedIncident);
+    }
+  }
+  
+  // Also update global security incidents
+  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+    console.log("Updating global security incidents in saveIncident");
+    window.SecurityIncidents.saveIncidents(incidentsData);
+  } else {
+    // Fallback if SecurityIncidents isn't available
+    window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
+  }
+  
+  // Re-render and update
+  renderIncidentList();
+  updateCapacityIndicator();
+  showNotification('Incident saved successfully', 'success');
+  
+  return true;
+}
+
+// Confirm deletion of an incident
+function confirmDeletion(index) {
+  if (confirm(`Are you sure you want to delete "${incidentsData[index].title}"? This cannot be undone.`)) {
+    // Remove from array
+    incidentsData.splice(index, 1);
+    
+    // Update global incidents
+    if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+      window.SecurityIncidents.saveIncidents(incidentsData);
+    } else {
+      window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
+    }
+    
+    // Update UI
+    renderIncidentList();
+    updateCapacityIndicator();
+    showNotification('Incident deleted', 'success');
+    
+    // Save to server
+    saveAllChanges();
+  }
+}
+
+// Save all changes to server
+function saveAllChanges() {
+  showNotification('Saving changes...', 'info');
+  
+  // First update the global SecurityIncidents object
+  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+    console.log("Updating global security incidents before saving to server");
+    window.SecurityIncidents.saveIncidents(incidentsData);
+  } else {
+    // Fallback if SecurityIncidents isn't available
+    window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
+  }
+  
+  fetch('/save-incidents', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(incidentsData)
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.success) {
+      showNotification('All changes saved successfully!', 'success');
+      
+      // Re-render the incident list to ensure UI is in sync
+      renderIncidentList();
+      updateCapacityIndicator();
+    } else {
+      throw new Error(data.message || 'Unknown server error');
+    }
+  })
+  .catch(error => {
+    console.error('Server error:', error);
+    showNotification(`Error saving changes: ${error.message}`, 'error');
+  });
+}
+
+// Export incidents
+function exportIncidents() {
+  // Send a request to download
+  window.location.href = '/download-incidents?t=' + new Date().getTime();
+  showNotification('Download started!', 'success');
 }
 
 // Show incident editor modal
@@ -2014,145 +2202,4 @@ function createLinksUI(container, links = [], stepIndex) {
   container.appendChild(linksContainer);
   
   renderLinks();
-}
-
-// Save the current incident
-function saveIncident() {
-  // Validate first
-  if (!selectedIncident.title) {
-    showNotification('Incident title is required', 'error');
-    return false;
-  }
-  
-  // Fill in empty link titles with target playbook title
-  selectedIncident.steps.forEach(step => {
-    if (step.links && step.links.length > 0) {
-      step.links.forEach(link => {
-        // If title is empty, use the target playbook's title
-        if (!link.title && link.target) {
-          link.title = link.target;
-        }
-      });
-    }
-  });
-  
-  if (isNewIncident) {
-    // Add to incidents
-    incidentsData.push(selectedIncident);
-  } else {
-    // Update existing
-    const index = incidentsData.findIndex(inc => inc.title === selectedIncident.title);
-    if (index !== -1) {
-      incidentsData[index] = selectedIncident;
-    } else {
-      // If title changed, add as new
-      incidentsData.push(selectedIncident);
-    }
-  }
-  
-  // Also update global security incidents
-  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
-    console.log("Updating global security incidents in saveIncident");
-    window.SecurityIncidents.saveIncidents(incidentsData);
-  } else {
-    // Fallback if SecurityIncidents isn't available
-    window.securityIncidents = [...incidentsData];
-  }
-  
-  // Re-render and update
-  renderIncidentList();
-  updateCapacityIndicator();
-  showNotification('Incident saved successfully', 'success');
-  
-  return true;
-}
-
-// Confirm deletion of an incident
-function confirmDeletion(index) {
-  if (confirm(`Are you sure you want to delete "${incidentsData[index].title}"? This cannot be undone.`)) {
-    // Remove from array
-    incidentsData.splice(index, 1);
-    
-    // Update UI
-    renderIncidentList();
-    updateCapacityIndicator();
-    showNotification('Incident deleted', 'success');
-  }
-}
-
-// Save all changes to server
-function saveAllChanges() {
-  showNotification('Saving changes...', 'info');
-  
-  // First update the global SecurityIncidents object
-  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
-    console.log("Updating global security incidents before saving to server");
-    window.SecurityIncidents.saveIncidents(incidentsData);
-  } else {
-    // Fallback if SecurityIncidents isn't available
-    window.securityIncidents = [...incidentsData];
-  }
-  
-  fetch('/save-incidents', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(incidentsData)
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      showNotification('All changes saved successfully!', 'success');
-      
-      // Re-render the incident list to ensure UI is in sync
-      renderIncidentList();
-      updateCapacityIndicator();
-    } else {
-      throw new Error(data.message || 'Unknown server error');
-    }
-  })
-  .catch(error => {
-    console.error('Server error:', error);
-    showNotification(`Error saving changes: ${error.message}`, 'error');
-  });
-}
-
-// Export incidents
-function exportIncidents() {
-  // Send a request to download
-  window.location.href = '/download-incidents?t=' + new Date().getTime();
-  showNotification('Download started!', 'success');
-}
-
-// Reload incidents from global state
-function reloadIncidentsFromGlobal() {
-  console.log("Reloading incidents from global state");
-  
-  if (window.securityIncidents && Array.isArray(window.securityIncidents)) {
-    console.log(`Found ${window.securityIncidents.length} incidents in global state`);
-    // Make a fresh copy of the global state
-    incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
-    
-    // Force UI to update
-    const incidentList = document.getElementById('incidentList');
-    incidentList.innerHTML = '';
-    
-    // Use setTimeout to ensure DOM updates
-    setTimeout(() => {
-      console.log("Rendering incident list after reload");
-      renderIncidentList();
-      updateCapacityIndicator();
-    }, 50);
-    
-    return true;
-  } else {
-    console.warn("No global incidents found to reload from");
-    return false;
-  }
 }
