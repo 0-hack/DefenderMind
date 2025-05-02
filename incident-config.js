@@ -669,19 +669,37 @@ function createConfigPanelStructure() {
     reader.readAsText(file);
   });
   
-  document.body.appendChild(fileInput);
-  
+  try {
+    document.body.appendChild(fileInput);
+    console.log("File input added to DOM");
+  } catch(err) {
+    console.error("Error adding file input to DOM:", err);
+  }
+    
   importBtn.addEventListener('click', function(e) {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
+    console.log("Import button clicked"); // Debug logging
+    
+    // Don't prevent default or stop propagation as that might be causing issues
+    // Just reset the input and trigger the click
+    
+    try {
+      // Reset input value - wrap in try/catch in case of browser security issues
+      fileInput.value = '';
+      
+      // Use setTimeout to avoid potential event conflicts
+      setTimeout(function() {
+        try {
+          console.log("Attempting to open file dialog");
+          fileInput.click();
+        } catch(err) {
+          console.error("Error clicking file input:", err);
+          showNotification("Error opening file dialog. Please try again.", "error");
+        }
+      }, 50);
+    } catch(err) {
+      console.error("Error in import button handler:", err);
+      showNotification("Error with file import. Please try again.", "error");
     }
-
-    // Reset the file input to ensure change event fires even with same file
-    fileInput.value = '';
-  
-    // Trigger file selection dialog
-    fileInput.click();
   });
   
   importExportContainer.appendChild(exportBtn);
