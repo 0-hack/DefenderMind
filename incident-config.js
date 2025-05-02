@@ -479,13 +479,108 @@ function createConfigPanelStructure() {
         const imported = JSON.parse(event.target.result);
         
         if (Array.isArray(imported) && imported.length > 0) {
-          // Basic validation
-          const valid = imported.every(item => 
-            typeof item === 'object' && 
-            item.title && 
-            typeof item.index === 'number' &&
-            Array.isArray(item.steps)
-          );
+          // More comprehensive validation
+          let valid = true;
+          let validationError = '';
+
+          // First check if it's an array of objects
+          if (!Array.isArray(imported)) {
+            valid = false;
+            validationError = 'Imported data must be an array';
+          } else if (imported.length === 0) {
+            valid = false;
+            validationError = 'Imported data cannot be empty';
+          } else {
+            // Validate each incident
+            for (let i = 0; i < imported.length; i++) {
+              const incident = imported[i];
+              
+              // Check basic structure
+              if (typeof incident !== 'object' || incident === null) {
+                valid = false;
+                validationError = `Incident at index ${i} is not an object`;
+                break;
+              }
+              
+              // Check required properties
+              if (!incident.title || typeof incident.title !== 'string') {
+                valid = false;
+                validationError = `Incident at index ${i} is missing a valid title`;
+                break;
+              }
+              
+              if (typeof incident.index !== 'number') {
+                valid = false;
+                validationError = `Incident at index ${i} has an invalid index (must be a number)`;
+                break;
+              }
+              
+              if (!Array.isArray(incident.steps) || incident.steps.length === 0) {
+                valid = false;
+                validationError = `Incident at index ${i} must have a non-empty steps array`;
+                break;
+              }
+              
+              // Validate steps
+              for (let j = 0; j < incident.steps.length; j++) {
+                const step = incident.steps[j];
+                
+                if (typeof step !== 'object' || step === null) {
+                  valid = false;
+                  validationError = `Step ${j} in incident "${incident.title}" is not an object`;
+                  break;
+                }
+                
+                if (!step.title || typeof step.title !== 'string') {
+                  valid = false;
+                  validationError = `Step ${j} in incident "${incident.title}" is missing a valid title`;
+                  break;
+                }
+                
+                // If step type is condition, validate conditions
+                if (step.type === 'condition') {
+                  if (!Array.isArray(step.conditions)) {
+                    valid = false;
+                    validationError = `Condition step ${j} in incident "${incident.title}" is missing a conditions array`;
+                    break;
+                  }
+                  
+                  // Basic check for condition structure
+                  for (let k = 0; k < step.conditions.length; k++) {
+                    const condition = step.conditions[k];
+                    if (!condition.title || !condition.target) {
+                      valid = false;
+                      validationError = `Condition ${k} in step ${j} of incident "${incident.title}" is missing title or target`;
+                      break;
+                    }
+                  }
+                }
+                
+                // Validate links if present
+                if (step.links && !Array.isArray(step.links)) {
+                  valid = false;
+                  validationError = `Step ${j} in incident "${incident.title}" has invalid links (must be an array)`;
+                  break;
+                }
+              }
+              
+              if (!valid) break;
+            }
+          }
+
+          if (valid) {
+            // Show confirmation dialog
+            const confirmOverwrite = confirm(`This will replace ${imported.length} incident(s) in your configuration. Continue?`);
+            
+            if (!confirmOverwrite) {
+              showNotification('Import cancelled', 'info');
+              return;
+            }
+            
+            // Rest of your existing code...
+          } else {
+            showNotification(`Invalid incident data format: ${validationError}`, 'error');
+          }
           
           if (valid) {
             // Show confirmation dialog
@@ -528,8 +623,16 @@ function createConfigPanelStructure() {
             .then(data => {
               if (data.success) {
                 // Update the visualization
-                if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
-                  window.SecurityIncidents.saveIncidents(incidentsData);
+                try {
+                  if (window.SecurityIncidents && typeof window.SecurityIncidents.saveIncidents === 'function') {
+                    window.SecurityIncidents.saveIncidents(incidentsData);
+                    showNotification(`Successfully imported ${incidentsData.length} incident(s)!`, 'success');
+                  } else {
+                    throw new Error('SecurityIncidents module not initialized');
+                  }
+                } catch (error) {
+                  console.error('Error updating visualization:', error);
+                  showNotification('Imported data saved but visualization update failed. Try refreshing the page.', 'warning');
                 }
                 showNotification(`Successfully imported ${incidentsData.length} incident(s)!`, 'success');
               } else {
@@ -552,7 +655,9 @@ function createConfigPanelStructure() {
       }
   
       // Reset file input to allow same file selection
-      fileInput.value = '';
+      if (fileInput) {
+        fileInput.value = '';
+      }
     };
   
     reader.onerror = function(error) {
