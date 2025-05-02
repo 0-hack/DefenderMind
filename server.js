@@ -22,11 +22,6 @@ app.get('/config-status', (req, res) => {
   });
 });
 
-// Default incidents array (keep your existing array here)
-const defaultIncidents = [
-  // Your existing defaultIncidents array
-];
-
 // Data paths
 const dataDir = path.join(__dirname, 'data');
 const incidentsFilePath = path.join(dataDir, 'security-incidents.json');
@@ -55,6 +50,11 @@ app.post('/save-incidents', (req, res) => {
   }
 
   try {
+    // Ensure data directory exists
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
     // Write to file with pretty formatting
     fs.writeFileSync(incidentsFilePath, JSON.stringify(incidents, null, 2));
     res.json({ success: true });
@@ -64,7 +64,7 @@ app.post('/save-incidents', (req, res) => {
   }
 });
 
-// Route to load incidents for first load
+// Route to download incidents file
 app.get('/download-incidents', (req, res) => {
   try {
     if (fs.existsSync(incidentsFilePath)) {
@@ -84,11 +84,33 @@ app.get('/download-incidents', (req, res) => {
   }
 });
 
+// Handle 404 errors
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/') {
+    // Check if requested page exists
+    const requestedPath = req.path === '/' ? '/index.html' : req.path;
+    const filePath = path.join(__dirname, requestedPath);
+    
+    if (!fs.existsSync(filePath)) {
+      // Redirect to index.html if file doesn't exist
+      return res.redirect('/index.html');
+    }
+  }
+  next();
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
+
+// If configuration is disabled, redirect config.html to index.html
+if (disableConfig) {
+  app.get('/config.html', (req, res) => {
+    res.redirect('/index.html');
+  });
+}
 
 // Start server
 app.listen(PORT, () => {
