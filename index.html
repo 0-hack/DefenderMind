@@ -14,6 +14,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+  <!-- Config button -->
+  <button id="configButton" class="config-button" title="Configuration">
+    <span>⚙️</span>
+  </button>
+  
   <!-- Script for initialization coordination -->
   <script>
     // Create global object to track initialization status
@@ -34,29 +39,15 @@
         console.error("Dependency not available after multiple attempts");
       }
     };
-    // Create global object to track initialization status
-    window.DefenderZone = {
-      initialized: false,
-      ready: false
-    };
     
-    // Helper to ensure scripts load in correct order
-    window.waitForDependency = function(check, callback, maxAttempts = 20) {
-      if (check()) {
-        callback();
-      } else if (maxAttempts > 0) {
-        setTimeout(function() { 
-          window.waitForDependency(check, callback, maxAttempts - 1); 
-        }, 100);
-      } else {
-        console.error("Dependency not available after multiple attempts");
-      }
-    };
+    // Add config button handler
+    document.getElementById('configButton').addEventListener('click', function() {
+      window.location.href = 'config.html';
+    });
   </script>
   
   <!-- Load scripts in the correct order -->
   <script src="security-incidents.js"></script>
-  <script src="incident-config.js"></script>
   <script src="brain-network.js"></script>
   <script src="ui-interactions.js"></script>
   <script src="cursor-aurora.js"></script>
