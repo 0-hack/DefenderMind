@@ -336,6 +336,7 @@ function handleFileUpload(event) {
   reader.onload = function(event) {
     try {
       const imported = JSON.parse(event.target.result);
+      console.log("Parsed imported data:", imported.length, "incidents");
       
       if (Array.isArray(imported) && imported.length > 0) {
         // Validate structure
@@ -347,14 +348,29 @@ function handleFileUpload(event) {
             // Check max limit
             if (imported.length > MAX_BRAIN_NODES) {
               alert(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`);
-              incidentsData = imported.slice(0, MAX_BRAIN_NODES);
+              incidentsData = [...imported.slice(0, MAX_BRAIN_NODES)];
             } else {
-              incidentsData = imported;
+              incidentsData = [...imported]; // Create a new array to ensure change detection
             }
             
-            renderIncidentList();
-            updateCapacityIndicator();
-            saveAllChanges();
+            // Force complete UI refresh
+            console.log("Updating UI with", incidentsData.length, "incidents");
+            
+            // Clear the list first
+            const incidentList = document.getElementById('incidentList');
+            if (incidentList) {
+              incidentList.innerHTML = '';
+            }
+            
+            // Ensure DOM updates before rendering
+            setTimeout(() => {
+              renderIncidentList();
+              updateCapacityIndicator();
+              showNotification(`Successfully imported ${incidentsData.length} incidents`, 'success');
+              
+              // Attempt to save after import completes
+              saveAllChanges();
+            }, 50);
           } else {
             showNotification('Import cancelled', 'info');
           }
