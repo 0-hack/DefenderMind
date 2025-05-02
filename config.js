@@ -100,13 +100,20 @@ function loadIncidents() {
   console.log("Loading incidents");
   showNotification('Loading incidents...', 'info');
   
+  // Clear existing data first
+  incidentsData = [];
+  
   // Check if securityIncidents is available (loaded from security-incidents.js)
-  if (window.securityIncidents) {
-    incidentsData = [...window.securityIncidents];
+  if (window.securityIncidents && Array.isArray(window.securityIncidents) && window.securityIncidents.length > 0) {
+    console.log(`Found ${window.securityIncidents.length} incidents in global state`);
+    // Make a deep copy to avoid reference issues
+    incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
+    console.log(`Loaded ${incidentsData.length} incidents from global state`);
     renderIncidentList();
     updateCapacityIndicator();
     showNotification('Incidents loaded successfully', 'success');
   } else {
+    console.log("No global incidents found, fetching from server");
     // If not available, fetch from server
     fetch('/data/security-incidents.json')
       .then(response => {
@@ -116,10 +123,17 @@ function loadIncidents() {
         return response.json();
       })
       .then(data => {
-        incidentsData = data;
-        renderIncidentList();
-        updateCapacityIndicator();
-        showNotification('Incidents loaded successfully', 'success');
+        if (Array.isArray(data)) {
+          incidentsData = data;
+          // Also update global state
+          window.securityIncidents = JSON.parse(JSON.stringify(data));
+          console.log(`Loaded ${incidentsData.length} incidents from server`);
+          renderIncidentList();
+          updateCapacityIndicator();
+          showNotification('Incidents loaded successfully', 'success');
+        } else {
+          throw new Error('Invalid data format received from server');
+        }
       })
       .catch(error => {
         console.error('Error loading incidents:', error);
@@ -346,40 +360,56 @@ function handleFileUpload(event) {
           // Confirm overwrite
           if (confirm(`This will replace ${imported.length} incident(s) in your configuration. Continue?`)) {
             // Check max limit
+            let importedData;
             if (imported.length > MAX_BRAIN_NODES) {
               alert(`Import contains ${imported.length} incidents, but the maximum limit is ${MAX_BRAIN_NODES}. Only the first ${MAX_BRAIN_NODES} will be imported.`);
-              incidentsData = [...imported.slice(0, MAX_BRAIN_NODES)];
+              importedData = imported.slice(0, MAX_BRAIN_NODES);
             } else {
-              incidentsData = [...imported]; // Create a new array to ensure change detection
+              importedData = imported;
             }
             
-            // Update global incidents data
+            // 1. Update global securityIncidents first
+            window.securityIncidents = JSON.parse(JSON.stringify(importedData));
+            
+            // 2. If SecurityIncidents API is available, use it
             if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
-              console.log("Updating global security incidents");
-              window.SecurityIncidents.saveIncidents(incidentsData);
-            } else {
-              // Fallback if SecurityIncidents isn't available
-              window.securityIncidents = [...incidentsData];
+              console.log("Updating global security incidents via API");
+              window.SecurityIncidents.saveIncidents(importedData);
             }
             
-            // Force complete UI refresh
-            console.log("Updating UI with", incidentsData.length, "incidents");
+            // 3. Now update local incidents data
+            incidentsData = JSON.parse(JSON.stringify(importedData));
             
-            // Clear the list first
+            console.log(`Updated: global(${window.securityIncidents.length}), local(${incidentsData.length})`);
+            
+            // 4. Force UI refresh
+            console.log("Forcing UI refresh");
             const incidentList = document.getElementById('incidentList');
             if (incidentList) {
               incidentList.innerHTML = '';
+              
+              // Add a temporary loading message
+              const loadingMsg = document.createElement('div');
+              loadingMsg.textContent = 'Loading imported incidents...';
+              loadingMsg.style.cssText = `
+                text-align: center;
+                padding: 20px;
+                color: #66ccff;
+                font-style: italic;
+              `;
+              incidentList.appendChild(loadingMsg);
             }
             
-            // Ensure DOM updates before rendering
+            // 5. Use a longer timeout to ensure DOM updates
             setTimeout(() => {
+              console.log("Rendering list after import");
               renderIncidentList();
               updateCapacityIndicator();
-              showNotification(`Successfully imported ${incidentsData.length} incidents`, 'success');
+              showNotification(`Successfully imported ${importedData.length} incidents`, 'success');
               
-              // Attempt to save after import completes
+              // 6. Save to server
               saveAllChanges();
-            }, 100);
+            }, 250);
           } else {
             showNotification('Import cancelled', 'info');
           }
@@ -2098,4 +2128,31 @@ function exportIncidents() {
   // Send a request to download
   window.location.href = '/download-incidents?t=' + new Date().getTime();
   showNotification('Download started!', 'success');
+}
+
+// Reload incidents from global state
+function reloadIncidentsFromGlobal() {
+  console.log("Reloading incidents from global state");
+  
+  if (window.securityIncidents && Array.isArray(window.securityIncidents)) {
+    console.log(`Found ${window.securityIncidents.length} incidents in global state`);
+    // Make a fresh copy of the global state
+    incidentsData = JSON.parse(JSON.stringify(window.securityIncidents));
+    
+    // Force UI to update
+    const incidentList = document.getElementById('incidentList');
+    incidentList.innerHTML = '';
+    
+    // Use setTimeout to ensure DOM updates
+    setTimeout(() => {
+      console.log("Rendering incident list after reload");
+      renderIncidentList();
+      updateCapacityIndicator();
+    }, 50);
+    
+    return true;
+  } else {
+    console.warn("No global incidents found to reload from");
+    return false;
+  }
 }
