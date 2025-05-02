@@ -353,6 +353,15 @@ function handleFileUpload(event) {
               incidentsData = [...imported]; // Create a new array to ensure change detection
             }
             
+            // Update global incidents data
+            if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+              console.log("Updating global security incidents");
+              window.SecurityIncidents.saveIncidents(incidentsData);
+            } else {
+              // Fallback if SecurityIncidents isn't available
+              window.securityIncidents = [...incidentsData];
+            }
+            
             // Force complete UI refresh
             console.log("Updating UI with", incidentsData.length, "incidents");
             
@@ -370,7 +379,7 @@ function handleFileUpload(event) {
               
               // Attempt to save after import completes
               saveAllChanges();
-            }, 50);
+            }, 100);
           } else {
             showNotification('Import cancelled', 'info');
           }
@@ -2011,6 +2020,15 @@ function saveIncident() {
     }
   }
   
+  // Also update global security incidents
+  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+    console.log("Updating global security incidents in saveIncident");
+    window.SecurityIncidents.saveIncidents(incidentsData);
+  } else {
+    // Fallback if SecurityIncidents isn't available
+    window.securityIncidents = [...incidentsData];
+  }
+  
   // Re-render and update
   renderIncidentList();
   updateCapacityIndicator();
@@ -2036,6 +2054,15 @@ function confirmDeletion(index) {
 function saveAllChanges() {
   showNotification('Saving changes...', 'info');
   
+  // First update the global SecurityIncidents object
+  if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
+    console.log("Updating global security incidents before saving to server");
+    window.SecurityIncidents.saveIncidents(incidentsData);
+  } else {
+    // Fallback if SecurityIncidents isn't available
+    window.securityIncidents = [...incidentsData];
+  }
+  
   fetch('/save-incidents', {
     method: 'POST',
     headers: {
@@ -2052,6 +2079,10 @@ function saveAllChanges() {
   .then(data => {
     if (data.success) {
       showNotification('All changes saved successfully!', 'success');
+      
+      // Re-render the incident list to ensure UI is in sync
+      renderIncidentList();
+      updateCapacityIndicator();
     } else {
       throw new Error(data.message || 'Unknown server error');
     }
