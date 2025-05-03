@@ -6,6 +6,7 @@ let incidentsData = [];
 const MAX_BRAIN_NODES = 162; // Maximum nodes available
 let selectedIncident = null;
 let isNewIncident = false;
+let originalIncidentIndex = -1; // Added to track the original incident index
 
 // Wait for DOM content loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -391,6 +392,7 @@ function createNewIncident() {
   };
   
   isNewIncident = true;
+  originalIncidentIndex = -1; // Reset original incident index for new incidents
   selectedIncident = newIncident;
   showIncidentEditor();
 }
@@ -416,6 +418,11 @@ function getNextAvailableIndex() {
 // Edit an existing incident
 function editIncident(incident) {
   isNewIncident = false;
+  
+  // Find the current index of this incident in the array for reliable reference
+  originalIncidentIndex = incidentsData.findIndex(inc => inc.index === incident.index);
+  console.log(`Editing incident at index ${originalIncidentIndex} with title "${incident.title}"`);
+  
   // Create a deep copy to avoid modifying the original until save
   selectedIncident = JSON.parse(JSON.stringify(incident));
   showIncidentEditor();
@@ -642,23 +649,23 @@ function saveIncident() {
     }
   });
   
-  console.log("Saving incident:", selectedIncident.title, "isNew:", isNewIncident);
+  console.log("Saving incident:", selectedIncident.title, "isNew:", isNewIncident, "originalIndex:", originalIncidentIndex);
   
   if (isNewIncident) {
     // Add to incidents
     incidentsData.push(selectedIncident);
   } else {
-    // Find the incident by index, which is more reliable than title
-    const index = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
-    
-    if (index !== -1) {
-      // Replace the existing incident
-      incidentsData[index] = selectedIncident;
+    // Use the stored original incident index to update the correct incident
+    if (originalIncidentIndex !== -1 && originalIncidentIndex < incidentsData.length) {
+      // Replace the existing incident at its original position
+      incidentsData[originalIncidentIndex] = selectedIncident;
+      console.log(`Updated incident at array index ${originalIncidentIndex}`);
     } else {
-      // If not found (rare case), try by title
-      const titleIndex = incidentsData.findIndex(inc => inc.title === selectedIncident.title);
-      if (titleIndex !== -1) {
-        incidentsData[titleIndex] = selectedIncident;
+      // Fallback: Find by index as a reliable identifier (not title which may have changed)
+      const indexInArray = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
+      if (indexInArray !== -1) {
+        incidentsData[indexInArray] = selectedIncident;
+        console.log(`Updated incident at found index ${indexInArray}`);
       } else {
         // If still not found, add as new
         console.log("Couldn't find existing incident, adding as new");
@@ -666,6 +673,9 @@ function saveIncident() {
       }
     }
   }
+  
+  // Reset the original incident index
+  originalIncidentIndex = -1;
   
   // Synchronize with global securityIncidents
   if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
