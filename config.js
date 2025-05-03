@@ -424,8 +424,17 @@ function editIncident(incident) {
 // Render the list of incidents
 function renderIncidentList() {
   const incidentList = document.getElementById('incidentList');
+  if (!incidentList) {
+    console.error("incidentList element not found");
+    return;
+  }
+  
+  console.log("Rendering incident list with", incidentsData.length, "incidents");
+  
+  // Completely clear existing list for a fresh render
   incidentList.innerHTML = '';
   
+  // Create list items
   if (incidentsData.length === 0) {
     const emptyMessage = document.createElement('div');
     emptyMessage.textContent = 'No incidents configured. Add one to get started!';
@@ -436,16 +445,18 @@ function renderIncidentList() {
       font-style: italic;
     `;
     incidentList.appendChild(emptyMessage);
-    return;
+  } else {
+    // Sort incidents by index for consistent display
+    const sortedIncidents = [...incidentsData].sort((a, b) => a.index - b.index);
+    
+    sortedIncidents.forEach((incident, index) => {
+      const item = createIncidentListItem(incident, index);
+      incidentList.appendChild(item);
+    });
   }
   
-  // Sort by index for consistency
-  const sortedIncidents = [...incidentsData].sort((a, b) => a.index - b.index);
-  
-  sortedIncidents.forEach((incident, index) => {
-    const item = createIncidentListItem(incident, index);
-    incidentList.appendChild(item);
-  });
+  // Update capacity indicator
+  updateCapacityIndicator();
 }
 
 // Create a single incident list item
@@ -631,33 +642,46 @@ function saveIncident() {
     }
   });
   
+  console.log("Saving incident:", selectedIncident.title, "isNew:", isNewIncident);
+  
   if (isNewIncident) {
     // Add to incidents
     incidentsData.push(selectedIncident);
   } else {
-    // Update existing
-    const index = incidentsData.findIndex(inc => inc.title === selectedIncident.title);
+    // Find the incident by index, which is more reliable than title
+    const index = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
+    
     if (index !== -1) {
+      // Replace the existing incident
       incidentsData[index] = selectedIncident;
     } else {
-      // If title changed, add as new
-      incidentsData.push(selectedIncident);
+      // If not found (rare case), try by title
+      const titleIndex = incidentsData.findIndex(inc => inc.title === selectedIncident.title);
+      if (titleIndex !== -1) {
+        incidentsData[titleIndex] = selectedIncident;
+      } else {
+        // If still not found, add as new
+        console.log("Couldn't find existing incident, adding as new");
+        incidentsData.push(selectedIncident);
+      }
     }
   }
   
-  // Also update global security incidents
+  // Synchronize with global securityIncidents
   if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
-    console.log("Updating global security incidents in saveIncident");
-    window.SecurityIncidents.saveIncidents(incidentsData);
+    console.log("Updating global security incidents");
+    window.SecurityIncidents.saveIncidents(JSON.parse(JSON.stringify(incidentsData)));
   } else {
-    // Fallback if SecurityIncidents isn't available
+    // Fallback if SecurityIncidents API isn't available
     window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
   }
   
-  // Re-render and update
-  renderIncidentList();
-  updateCapacityIndicator();
-  showNotification('Incident saved successfully', 'success');
+  // Force re-render with fresh data
+  setTimeout(() => {
+    renderIncidentList();
+    updateCapacityIndicator();
+    showNotification('Incident saved successfully', 'success');
+  }, 50);
   
   return true;
 }
@@ -665,20 +689,30 @@ function saveIncident() {
 // Confirm deletion of an incident
 function confirmDeletion(index) {
   if (confirm(`Are you sure you want to delete "${incidentsData[index].title}"? This cannot be undone.`)) {
+    console.log(`Deleting incident: ${incidentsData[index].title}`);
+    
     // Remove from array
     incidentsData.splice(index, 1);
     
     // Update global incidents
     if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
-      window.SecurityIncidents.saveIncidents(incidentsData);
+      window.SecurityIncidents.saveIncidents(JSON.parse(JSON.stringify(incidentsData)));
     } else {
       window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
     }
     
-    // Update UI
-    renderIncidentList();
-    updateCapacityIndicator();
-    showNotification('Incident deleted', 'success');
+    // Force re-render with fresh data
+    setTimeout(() => {
+      // Use document.getElementById again to ensure we have the latest DOM reference
+      const incidentList = document.getElementById('incidentList');
+      if (incidentList) {
+        incidentList.innerHTML = '';
+        renderIncidentList();
+      }
+      
+      updateCapacityIndicator();
+      showNotification('Incident deleted', 'success');
+    }, 50);
     
     // Save to server
     saveAllChanges();
