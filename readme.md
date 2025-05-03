@@ -2,7 +2,7 @@
 
 Defender Mind is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
 
-Demo available at https://mind.defender.zone
+Visit https://mind.defender.zone to experience.
 
 ## Overview
 
@@ -19,26 +19,25 @@ The easiest way to run Defender Mind is using Docker Compose, which handles all 
 
 ### Running with Docker Compose
 
-1. Clone or download this repository to your local machine
+1. Clone or download this repository to your local machine:
+   ```bash
+   git clone https://github.com/0-hack/DefenderMind.git
+   cd DefenderMind
+   ```
 
-2. Open a terminal/command prompt and navigate to the project directory
+2. Build and start the container:
+   ```bash
+   docker-compose up -d
+   ```
 
-3. Build and start the container:
-
-```bash
-docker-compose up -d
-```
-
-4. Access the application in your web browser:
-
-```
-http://localhost:3000
-```
+3. Access the application in your web browser:
+   ```
+   http://localhost:3000
+   ```
 
 ### Stopping the Application
 
 To stop the application:
-
 ```bash
 docker-compose down
 ```
@@ -79,10 +78,8 @@ Defender Mind uses an advanced playbook system with:
 - **Target Step Navigation**: Jump to specific steps within the same or different playbooks
 - **Visual Indicators**: Clear icons showing conditions and available links
 
-## Configuration Mode
-
-The configuration panel allows you to:
-
+## Configuration Interface
+The in-app configuration panel allows you to:
 - Add new security incidents
 - Edit existing incidents and their response steps
 - Create conditional branches with multiple response paths
@@ -90,7 +87,10 @@ The configuration panel allows you to:
 - Customize colors and appearance
 - Assign incidents to specific network nodes
 - Export and import incident configurations
-- Manage all incident playbooks from a centralized interface
+
+To access:
+- Click the ⚙️ gear icon in the top right corner of the main interface
+- Access the page directly at `http://localhost:3000/config.html`
 
 ## Public Display Mode
 
@@ -136,15 +136,28 @@ All incident data is saved to a persistent Docker volume. This means your change
 
 The default JSON file is stored in both the container at: `/app/data/security-incidents.json`
 
-And in your host machine at: '/var/lib/docker/volumes/defendermind_defender-data/_data/security-incidents.json'
+And in your host machine at: `/var/lib/docker/volumes/defendermind_defender-data/_data/security-incidents.json`
 
 ## Manual Data Export/Import
 
-When configuration is enabled, you can manually export and import data through the configuration panel:
+You can manually export and import data through the configuration interface:
 
 1. Click the "⚙️" gear icon button to open the configuration panel
 2. Use the "📤 Export" button to download a JSON file
 3. Use the "📥 Import" button to load a JSON file
+
+## Default Incidents
+
+The application comes with several pre-configured incident types:
+- Malware Attack
+- Phishing
+- DDoS Attack
+- Ransomware Attack
+- Data Breach
+- Insider Threat
+- Business Email Compromise
+
+Each includes a comprehensive playbook with steps, conditions, and cross-references.
 
 ## Advanced Configuration
 
@@ -171,7 +184,7 @@ The application uses a simple Express.js server to handle:
 
 Default incidents are stored in `server.js` and automatically loaded when no JSON file exists. To change the defaults:
 
-1. Edit the `defaultIncidents` array in `server.js`
+1. Edit the `DEFAULT_INCIDENTS` array in `server.js`
 2. Rebuild the container: `docker-compose up -d --build`
 
 ## Rebuilding the Application
@@ -232,6 +245,10 @@ If you encounter issues:
 2. **Configuration button not responding**: Check if configuration is disabled in environment variables
 3. **Changes not saving**: Verify Docker volume permissions
 4. **Slow performance**: Reduce browser window size or try a device with better graphics capabilities
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
