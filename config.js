@@ -233,7 +233,7 @@ function handleFileUpload(event) {
         
         if (isValid) {
           // Confirm overwrite
-          if (confirm(`This will replace ${imported.length} incident(s) in your configuration. Continue?`)) {
+          if (confirm(`This will replace your current ${incidentsData.length} incident(s) with ${imported.length} incident(s) from the imported file. Continue?`)) {
             // Check max limit
             let importedData;
             if (imported.length > MAX_BRAIN_NODES) {
