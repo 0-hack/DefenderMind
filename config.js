@@ -466,7 +466,7 @@ function renderIncidentList() {
   updateCapacityIndicator();
 }
 
-// Create a single incident list item
+// Fix for createIncidentListItem function - replace the entire function in config.js
 function createIncidentListItem(incident) {
   const item = document.createElement('div');
   item.className = 'incident-item';
@@ -589,9 +589,12 @@ function createIncidentListItem(incident) {
     align-items: center;
   `;
   
+  // Create a proper closure by creating a copy of the incident data
+  const incidentToEdit = Object.assign({}, incident);
+  
   editBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    editIncident(incident);
+    editIncident(incidentToEdit);
   });
   
   const deleteBtn = document.createElement('button');
@@ -609,12 +612,14 @@ function createIncidentListItem(incident) {
     align-items: center;
   `;
   
-  // FIX: Create a specific closure with the current incident
-  const incidentToDelete = incident; // Explicitly capture for this closure
+  // Create a proper closure with a new instance of the incident data
+  const incidentToDelete = {
+    title: incident.title,
+    index: incident.index
+  };
   
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Use the captured incident
     confirmDeletion(incidentToDelete);
   });
   
@@ -625,14 +630,15 @@ function createIncidentListItem(incident) {
   item.appendChild(infoContainer);
   item.appendChild(actionContainer);
   
-  // Add click handler to entire item
+  // Add click handler to entire item using the same copied data
   item.addEventListener('click', () => {
-    editIncident(incident);
+    editIncident(incidentToEdit);
   });
   
   return item;
 }
-// Save the current incident
+
+// Fix for saveIncident function - replace the entire function in config.js
 function saveIncident() {
   // Validate first
   if (!selectedIncident.title) {
@@ -659,24 +665,27 @@ function saveIncident() {
     // Add to incidents
     incidentsData.push(selectedIncident);
   } else {
-    // Find the incident by matching the original title, which is more reliable
-    const existingIndex = incidentsData.findIndex(inc => inc.title === originalIncidentTitle);
+    // Find the incident in multiple ways for reliability
+    let existingIndex = -1;
+    
+    // First try by original title
+    if (originalIncidentTitle) {
+      existingIndex = incidentsData.findIndex(inc => inc.title === originalIncidentTitle);
+    }
+    
+    // If not found by title, try by node index
+    if (existingIndex === -1) {
+      existingIndex = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
+    }
     
     if (existingIndex !== -1) {
-      // Replace the existing incident with the updated one
+      // Replace the existing incident
       console.log(`Replacing incident at index ${existingIndex}`);
       incidentsData[existingIndex] = selectedIncident;
     } else {
-      // Alternative lookup by node index if title not found
-      const indexByNode = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
-      if (indexByNode !== -1) {
-        console.log(`Replacing incident at node index ${selectedIncident.index}`);
-        incidentsData[indexByNode] = selectedIncident;
-      } else {
-        // If still not found, add as new
-        console.log("Couldn't find existing incident, adding as new");
-        incidentsData.push(selectedIncident);
-      }
+      // If still not found (shouldn't happen normally), add as new
+      console.log("Couldn't find existing incident, adding as new");
+      incidentsData.push(selectedIncident);
     }
   }
   
@@ -692,6 +701,12 @@ function saveIncident() {
     window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
   }
   
+  // Completely rebuild the list UI
+  const incidentList = document.getElementById('incidentList');
+  if (incidentList) {
+    incidentList.innerHTML = '';
+  }
+  
   // Force re-render with fresh data
   setTimeout(() => {
     renderIncidentList();
@@ -702,7 +717,7 @@ function saveIncident() {
   return true;
 }
 
-// Confirm deletion of an incident
+// Fix for confirmDeletion function - replace the entire function in config.js
 function confirmDeletion(incident) {
   // Log the incident we're trying to delete for debugging
   console.log(`Attempting to delete: "${incident.title}" (Node: ${incident.index})`);
@@ -711,10 +726,15 @@ function confirmDeletion(incident) {
   if (confirm(`Are you sure you want to delete "${incident.title}"? This cannot be undone.`)) {
     console.log(`Deleting incident: "${incident.title}" (node index: ${incident.index})`);
     
-    // Find the incident in the array by matching both title and index for reliability
-    const arrayIndex = incidentsData.findIndex(inc => 
-      inc.title === incident.title && inc.index === incident.index
-    );
+    // Find the incident more flexibly (first by title, then by index if needed)
+    let arrayIndex = incidentsData.findIndex(inc => inc.title === incident.title);
+    
+    // If we couldn't find by title alone, try with index as well
+    if (arrayIndex === -1) {
+      arrayIndex = incidentsData.findIndex(inc => 
+        inc.title === incident.title || inc.index === incident.index
+      );
+    }
     
     if (arrayIndex === -1) {
       showNotification(`Error: Couldn't find incident "${incident.title}" to delete`, 'error');
@@ -731,15 +751,15 @@ function confirmDeletion(incident) {
       window.securityIncidents = JSON.parse(JSON.stringify(incidentsData));
     }
     
+    // Clear the incident list completely before re-rendering
+    const incidentList = document.getElementById('incidentList');
+    if (incidentList) {
+      incidentList.innerHTML = '';
+    }
+    
     // Force re-render with fresh data
     setTimeout(() => {
-      // Use document.getElementById again to ensure we have the latest DOM reference
-      const incidentList = document.getElementById('incidentList');
-      if (incidentList) {
-        incidentList.innerHTML = '';
-        renderIncidentList();
-      }
-      
+      renderIncidentList();
       updateCapacityIndicator();
       showNotification('Incident deleted', 'success');
     }, 50);
