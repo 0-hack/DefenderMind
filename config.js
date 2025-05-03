@@ -6,7 +6,7 @@ let incidentsData = [];
 const MAX_BRAIN_NODES = 162; // Maximum nodes available
 let selectedIncident = null;
 let isNewIncident = false;
-let originalIncidentIndex = -1; // Added to track the original incident index
+let originalIncidentTitle = ''; // Track original title for reliable reference
 
 // Wait for DOM content loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -392,7 +392,7 @@ function createNewIncident() {
   };
   
   isNewIncident = true;
-  originalIncidentIndex = -1; // Reset original incident index for new incidents
+  originalIncidentTitle = ''; // Reset for new incidents
   selectedIncident = newIncident;
   showIncidentEditor();
 }
@@ -419,9 +419,9 @@ function getNextAvailableIndex() {
 function editIncident(incident) {
   isNewIncident = false;
   
-  // Find the current index of this incident in the array for reliable reference
-  originalIncidentIndex = incidentsData.findIndex(inc => inc.index === incident.index);
-  console.log(`Editing incident at index ${originalIncidentIndex} with title "${incident.title}"`);
+  // Store the original incident title for reliable reference
+  originalIncidentTitle = incident.title;
+  console.log(`Editing incident: "${incident.title}" with node index ${incident.index}`);
   
   // Create a deep copy to avoid modifying the original until save
   selectedIncident = JSON.parse(JSON.stringify(incident));
@@ -456,8 +456,8 @@ function renderIncidentList() {
     // Sort incidents by index for consistent display
     const sortedIncidents = [...incidentsData].sort((a, b) => a.index - b.index);
     
-    sortedIncidents.forEach((incident, index) => {
-      const item = createIncidentListItem(incident, index);
+    sortedIncidents.forEach((incident) => {
+      const item = createIncidentListItem(incident);
       incidentList.appendChild(item);
     });
   }
@@ -467,7 +467,7 @@ function renderIncidentList() {
 }
 
 // Create a single incident list item
-function createIncidentListItem(incident, index) {
+function createIncidentListItem(incident) {
   const item = document.createElement('div');
   item.className = 'incident-item';
   
@@ -611,7 +611,8 @@ function createIncidentListItem(incident, index) {
   
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    confirmDeletion(index);
+    // Pass the incident object directly, not an index
+    confirmDeletion(incident);
   });
   
   actionContainer.appendChild(editBtn);
@@ -649,23 +650,26 @@ function saveIncident() {
     }
   });
   
-  console.log("Saving incident:", selectedIncident.title, "isNew:", isNewIncident, "originalIndex:", originalIncidentIndex);
+  console.log("Saving incident:", selectedIncident.title, "isNew:", isNewIncident, 
+              "originalTitle:", originalIncidentTitle);
   
   if (isNewIncident) {
     // Add to incidents
     incidentsData.push(selectedIncident);
   } else {
-    // Use the stored original incident index to update the correct incident
-    if (originalIncidentIndex !== -1 && originalIncidentIndex < incidentsData.length) {
-      // Replace the existing incident at its original position
-      incidentsData[originalIncidentIndex] = selectedIncident;
-      console.log(`Updated incident at array index ${originalIncidentIndex}`);
+    // Find the incident by matching the original title, which is more reliable
+    const existingIndex = incidentsData.findIndex(inc => inc.title === originalIncidentTitle);
+    
+    if (existingIndex !== -1) {
+      // Replace the existing incident with the updated one
+      console.log(`Replacing incident at index ${existingIndex}`);
+      incidentsData[existingIndex] = selectedIncident;
     } else {
-      // Fallback: Find by index as a reliable identifier (not title which may have changed)
-      const indexInArray = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
-      if (indexInArray !== -1) {
-        incidentsData[indexInArray] = selectedIncident;
-        console.log(`Updated incident at found index ${indexInArray}`);
+      // Alternative lookup by node index if title not found
+      const indexByNode = incidentsData.findIndex(inc => inc.index === selectedIncident.index);
+      if (indexByNode !== -1) {
+        console.log(`Replacing incident at node index ${selectedIncident.index}`);
+        incidentsData[indexByNode] = selectedIncident;
       } else {
         // If still not found, add as new
         console.log("Couldn't find existing incident, adding as new");
@@ -674,8 +678,8 @@ function saveIncident() {
     }
   }
   
-  // Reset the original incident index
-  originalIncidentIndex = -1;
+  // Reset tracking variables
+  originalIncidentTitle = '';
   
   // Synchronize with global securityIncidents
   if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
@@ -696,13 +700,23 @@ function saveIncident() {
   return true;
 }
 
-// Confirm deletion of an incident
-function confirmDeletion(index) {
-  if (confirm(`Are you sure you want to delete "${incidentsData[index].title}"? This cannot be undone.`)) {
-    console.log(`Deleting incident: ${incidentsData[index].title}`);
+// Confirm deletion of an incident - now takes the incident object, not an index
+function confirmDeletion(incident) {
+  if (confirm(`Are you sure you want to delete "${incident.title}"? This cannot be undone.`)) {
+    console.log(`Deleting incident: "${incident.title}" (node index: ${incident.index})`);
     
-    // Remove from array
-    incidentsData.splice(index, 1);
+    // Find the actual index in the array by matching the incident object properties
+    const arrayIndex = incidentsData.findIndex(inc => 
+      inc.title === incident.title && inc.index === incident.index
+    );
+    
+    if (arrayIndex === -1) {
+      showNotification(`Error: Couldn't find incident "${incident.title}" to delete`, 'error');
+      return;
+    }
+    
+    // Remove from array using the actual array index
+    incidentsData.splice(arrayIndex, 1);
     
     // Update global incidents
     if (window.SecurityIncidents && window.SecurityIncidents.saveIncidents) {
@@ -1563,11 +1577,12 @@ function createConditionUI(container, conditions = [], stepIndex) {
           font-size: 13px;
         `;
         
-        // Add playbook options
+        // Add playbook options - ensure we get fresh data
         const playbooks = incidentsData;
         playbooks.forEach(playbook => {
           // Skip current incident to prevent circular reference
-          if (isNewIncident || playbook.title !== selectedIncident.title) {
+          if (isNewIncident || (playbook.title !== selectedIncident.title && 
+              playbook.title !== originalIncidentTitle)) {
             const optEl = document.createElement('option');
             optEl.value = playbook.title;
             optEl.dataset.index = playbook.index;
@@ -1742,12 +1757,14 @@ function createConditionUI(container, conditions = [], stepIndex) {
             delete condition.targetStep;
           } else if (targetTypeSelect.value === 'playbook') {
             const selectedOption = playbookSelect.options[playbookSelect.selectedIndex];
-            condition.target = selectedOption.value;
-            condition.targetIndex = parseInt(selectedOption.dataset.index);
-            
-            // Default to first step (0) if not already set
-            if (condition.targetStep === undefined) {
-              condition.targetStep = 0;
+            if (selectedOption) {
+              condition.target = selectedOption.value;
+              condition.targetIndex = parseInt(selectedOption.dataset.index);
+              
+              // Default to first step (0) if not already set
+              if (condition.targetStep === undefined) {
+                condition.targetStep = 0;
+              }
             }
           }
         });
@@ -1991,11 +2008,12 @@ function createLinksUI(container, links = [], stepIndex) {
         // Variable to hold reference to selected playbook
         let selectedPlaybook = null;
         
-        // Add playbook options
+        // Add playbook options - ensure we get fresh data
         const playbooks = incidentsData;
         playbooks.forEach(playbook => {
           // Skip current incident to prevent circular reference
-          if (isNewIncident || playbook.title !== selectedIncident.title) {
+          if (isNewIncident || (playbook.title !== selectedIncident.title && 
+              playbook.title !== originalIncidentTitle)) {
             const optEl = document.createElement('option');
             optEl.value = playbook.title;
             optEl.dataset.index = playbook.index;
@@ -2215,8 +2233,9 @@ function createLinksUI(container, links = [], stepIndex) {
       selectedIncident.steps[stepIndex].links = [];
     }
     
-    // Get available playbooks
-    const availablePlaybooks = incidentsData.filter(p => isNewIncident || p.title !== selectedIncident.title);
+    // Get available playbooks - exclude current playbook
+    const availablePlaybooks = incidentsData.filter(p => 
+      isNewIncident || (p.title !== selectedIncident.title && p.title !== originalIncidentTitle));
     
     // Select first available playbook that's not this one
     let targetPlaybook = null;
