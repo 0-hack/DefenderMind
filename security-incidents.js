@@ -1144,7 +1144,7 @@ function navigateToStep(stepRef, targetIndex, targetStep) {
   }
 }
 
-// Close incident panel with improved camera reset and label restoration
+// Close incident panel with improved camera reset
 function closeIncidentPanel() {
   // Begin panel closing animation
   incidentPanel.style.opacity = '0';
@@ -1162,20 +1162,31 @@ function closeIncidentPanel() {
     incidentPanel.style.display = 'none';
     panelOverlay.style.display = 'none';
     
-    // Make node labels visible again with special handling for mobile
-    nodeLabels.forEach(label => {
-      if (isMobile) {
-        // On mobile, restore previous visibility based on stored state
-        if (label.dataset.wasVisible === 'true') {
-          label.style.display = 'block';
+    // Use a specific delay for mobile devices
+    const labelRestoreDelay = isMobile ? 300 : 0;
+    
+    setTimeout(() => {
+      // Restore label visibility with special handling for mobile
+      nodeLabels.forEach(label => {
+        // On mobile, we need to ensure nodes that should be visible get displayed
+        if (isMobile) {
+          // Update label positions before making them visible again
+          if (window.updateNodeLabels && window.camera) {
+            window.updateNodeLabels(window.camera);
+          }
+          
+          // Make labels visible after position update
+          if (label.style.visibility !== 'hidden') {
+            label.style.display = 'block';
+          }
+        } else {
+          // Standard desktop behavior
+          if (label.style.visibility !== 'hidden') {
+            label.style.display = 'block';
+          }
         }
-      } else {
-        // On desktop, restore all non-hidden labels
-        if (label.style.visibility !== 'hidden') {
-          label.style.display = 'block';
-        }
-      }
-    });
+      });
+    }, labelRestoreDelay);
     
     // Resume animation
     if (isPauseCallback) isPauseCallback(false);
@@ -1587,7 +1598,13 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
   let hoveredNode = null;
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
+  // Flag to track touch events vs mouse events
+  let lastTouchTime = 0;
+  
   function updateTooltip(e) {
+    // Skip this function on mobile
+    if (isMobile) return;
+    
     raycaster.setFromCamera(mouse, camera);
     
     // First pass: Attempt to intersect with incident nodes only
@@ -1621,43 +1638,37 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
           hitNode.userData.label.classList.add('active');
         }
         
-        // Only show tooltip on desktop
-        if (!isMobile) {
-          tooltip.style.display = 'block';
-          tooltip.textContent = 'Click for details';
-          tooltip.style.left = `${e.clientX + 10}px`;
-          tooltip.style.top = `${e.clientY + 10}px`;
-        }
+        tooltip.style.display = 'block';
+        tooltip.textContent = 'Click for details';
+        tooltip.style.left = `${e.clientX + 10}px`;
+        tooltip.style.top = `${e.clientY + 10}px`;
         return;
       }
     }
     
     hoveredNode = null;
-    // Only hide tooltip on desktop
-    if (!isMobile) {
-      tooltip.style.display = 'none';
-    }
+    tooltip.style.display = 'none';
   }
   
-  function onClick(e) {
-    // Prevent default behaviors to avoid interference on mobile
-    e.preventDefault();
+  // Handle mouse click and touch events in a unified way
+  function handleInteraction(clientX, clientY, isTouch = false) {
+    // Update mouse position for raycasting
+    mouse.x = (clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
     
     raycaster.setFromCamera(mouse, camera);
     
     // Adjust the raycaster threshold for better node detection
-    const raycasterThreshold = isMobile ? 0.04 : 0.02; // Increased thresholds
+    const raycasterThreshold = isMobile ? 0.05 : 0.02; // Increased threshold for mobile
     
     // Set threshold for raycaster if it exists
     if (raycaster.params) {
       if (raycaster.params.Points) {
         raycaster.params.Points.threshold = raycasterThreshold;
       }
-      // Set Line threshold if it exists
       if (raycaster.params.Line) {
         raycaster.params.Line.threshold = raycasterThreshold;
       }
-      // Set Mesh threshold if it exists
       if (raycaster.params.Mesh) {
         raycaster.params.Mesh.threshold = raycasterThreshold;
       }
@@ -1667,18 +1678,16 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
     raycaster.near = 0.1;
     raycaster.far = 1000;
     
-    // Enhanced detection: Sort nodes by distance to camera (front to back)
+    // First try with incident nodes sorted by distance to camera
     const sortedIncidentNodes = brainNodes
       .filter(n => n.mesh && n.mesh.userData.isIncidentNode)
       .sort((a, b) => {
-        // Calculate distance to camera
         const distA = camera.position.distanceTo(a.mesh.position);
         const distB = camera.position.distanceTo(b.mesh.position);
         return distA - distB; // Sort front-to-back
       })
       .map(n => n.mesh);
     
-    // First try incident nodes
     let intersects = raycaster.intersectObjects(sortedIncidentNodes);
     
     // If no incident nodes were hit, check all nodes
@@ -1700,23 +1709,42 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
       const hitNode = intersects[0].object;
       
       if (hitNode.userData.isIncidentNode && hitNode.userData.incidentData) {
-        e.stopPropagation();
+        // On mobile, check for node label clicks first
+        if (isMobile && isTouch) {
+          // Check if we clicked on a label
+          let clickedOnLabel = false;
+          
+          // Special handling for touch on labels - they should be fully interactive
+          for (let i = 0; i < nodeLabels.length; i++) {
+            const label = nodeLabels[i];
+            
+            // Get label position and dimensions
+            const rect = label.getBoundingClientRect();
+            if (clientX >= rect.left && clientX <= rect.right && 
+                clientY >= rect.top && clientY <= rect.bottom) {
+              // We clicked on a label, let the label's own click handler work
+              clickedOnLabel = true;
+              break;
+            }
+          }
+          
+          // If we clicked on a label, don't process the node click
+          if (clickedOnLabel) {
+            return;
+          }
+        }
         
         // Hide tooltip if visible
         if (tooltip) {
           tooltip.style.display = 'none';
         }
         
-        // Store visibility state of labels for later restoration on mobile
+        // On mobile, just temporarily hide all labels
         if (isMobile) {
           nodeLabels.forEach(label => {
-            // Store current visibility state as a data attribute
-            label.dataset.wasVisible = (label.style.display !== 'none');
-            // Only temporarily hide labels on mobile
             label.style.display = 'none';
           });
         } else {
-          // On desktop, simply hide all labels
           nodeLabels.forEach(label => {
             label.style.display = 'none';
           });
@@ -1732,10 +1760,60 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
     }
   }
   
+  // Handle mouse click
+  function onClick(e) {
+    // Differentiate between mouse click and touch event (mobile browsers simulate clicks)
+    const now = Date.now();
+    if (now - lastTouchTime > 500) { // Not a touch-generated click
+      e.preventDefault();
+      handleInteraction(e.clientX, e.clientY);
+    }
+  }
+  
+  // Handle touch events
+  function onTouchStart(e) {
+    lastTouchTime = Date.now();
+    
+    // Prevent multiple touches
+    if (e.touches.length !== 1) return;
+    
+    // Don't prevent default here to allow scrolling
+    
+    // Get touch position
+    const touch = e.touches[0];
+    
+    // Update the mouse position for future raycasting
+    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+  }
+  
+  function onTouchEnd(e) {
+    // Prevent the click event after this touch
+    e.preventDefault();
+    
+    // Ensure this was a single-touch interaction
+    if (e.changedTouches.length !== 1) return;
+    
+    const touch = e.changedTouches[0];
+    handleInteraction(touch.clientX, touch.clientY, true);
+  }
+  
+  // Add mouse events for desktop
   document.addEventListener('mousemove', updateTooltip);
   document.addEventListener('click', onClick);
   
-  return { updateTooltip, onClick };
+  // Add touch events for mobile
+  if (isMobile) {
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchend', onTouchEnd);
+  }
+  
+  return { 
+    updateTooltip, 
+    onClick, 
+    onTouchStart, 
+    onTouchEnd 
+  };
 }
 
 // Modified showIncidentPanel function to fix overlay and timing issues
