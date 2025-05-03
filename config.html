@@ -36,6 +36,8 @@
       margin-bottom: 20px;
       padding-bottom: 15px;
       border-bottom: 1px solid rgba(0,120,255,0.3);
+      flex-wrap: wrap;
+      gap: 10px;
     }
     
     .config-title {
@@ -58,6 +60,7 @@
       align-items: center;
       gap: 8px;
       transition: all 0.3s ease;
+      white-space: nowrap;
     }
     
     .home-button:hover {
@@ -141,6 +144,7 @@
       display: flex;
       gap: 10px;
       margin-top: 15px;
+      margin-bottom: 10px;
     }
     
     .import-export-button {
@@ -158,6 +162,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      white-space: nowrap;
     }
     
     .import-export-button:hover {
@@ -203,16 +208,73 @@
     
     /* Responsive adjustments */
     @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
       .config-container {
         padding: 15px;
+      }
+      
+      .config-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      
+      .config-title {
+        font-size: 20px;
+      }
+      
+      .home-button {
+        align-self: flex-start;
+        font-size: 13px;
+        padding: 6px 12px;
+      }
+      
+      .capacity-indicator {
+        margin-left: 10px;
+        font-size: 12px;
       }
       
       .action-buttons {
         flex-direction: column;
       }
       
+      .action-button {
+        font-size: 14px;
+        padding: 10px;
+      }
+      
       .import-export-container {
         flex-direction: column;
+        margin-bottom: 20px;
+      }
+      
+      .import-export-button {
+        font-size: 13px;
+        padding: 8px;
+      }
+      
+      .modal-container {
+        padding: 15px;
+        max-width: 95vw;
+      }
+      
+      .incidents-list {
+        max-height: 40vh;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .incident-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      
+      .incident-item > div:last-child {
+        align-self: flex-end;
       }
     }
   </style>
@@ -220,7 +282,7 @@
 <body>
   <div class="config-container">
     <div class="config-header">
-      <div style="display: flex; align-items: center;">
+      <div style="display: flex; align-items: center; flex-wrap: wrap;">
         <h1 class="config-title">Incident Configuration</h1>
         <span id="node-capacity-indicator" class="capacity-indicator">0/162 nodes</span>
       </div>
