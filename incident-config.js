@@ -86,9 +86,33 @@ function showNotification(message, type = 'info') {
 document.addEventListener('DOMContentLoaded', function() {
   console.log("Loading configuration module");
   
-  // Check if configuration should be disabled based on server environment
-  const configDisabled = window.DEFENDER_CONFIG && window.DEFENDER_CONFIG.disableConfig;
+   // Check if configuration should be disabled
+  // First, check if we've already fetched the config status
+  let configDisabled = window.DEFENDER_CONFIG && window.DEFENDER_CONFIG.disableConfig;
   
+  // If we haven't fetched it yet, check the server directly
+  if (typeof configDisabled === 'undefined') {
+    fetch('/config-status')
+      .then(response => response.json())
+      .then(data => {
+        window.DEFENDER_CONFIG = data;
+        configDisabled = data.disableConfig;
+        
+        initConfigBasedOnStatus(configDisabled);
+      })
+      .catch(error => {
+        console.error('Error fetching config status:', error);
+        // Default to enabled if there's an error
+        initConfigBasedOnStatus(false);
+      });
+  } else {
+    // We already have the config status
+    initConfigBasedOnStatus(configDisabled);
+  }
+});
+
+// Initialize configuration based on disabled status
+function initConfigBasedOnStatus(configDisabled) {
   if (!configDisabled) {
     // Create config button immediately to improve responsiveness
     createConfigButton();
@@ -98,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     console.log("Configuration interface disabled by server environment setting");
   }
-});
+}
 
 // Wait for SecurityIncidents to be fully initialized
 function waitForSecurityIncidents() {
