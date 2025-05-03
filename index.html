@@ -14,10 +14,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <!-- Config button -->
-  <button id="configButton" class="config-button" title="Configuration">
-    <span>⚙️</span>
-  </button>
+  <!-- Config button is now created dynamically -->
   
   <!-- Script for initialization coordination -->
   <script>
@@ -40,10 +37,33 @@
       }
     };
     
-    // Add config button handler
-    document.getElementById('configButton').addEventListener('click', function() {
-      window.location.href = 'config.html';
-    });
+    // Fetch configuration status from server
+    fetch('/config-status')
+      .then(response => response.json())
+      .then(data => {
+        // Store configuration in global variable for other scripts
+        window.DEFENDER_CONFIG = data;
+        
+        // Only create config button if configuration is not disabled
+        if (!data.disableConfig) {
+          const configButton = document.createElement('button');
+          configButton.id = 'configButton';
+          configButton.className = 'config-button';
+          configButton.title = 'Configuration';
+          configButton.innerHTML = '<span>⚙️</span>';
+          
+          // Add click handler
+          configButton.addEventListener('click', function() {
+            window.location.href = 'config.html';
+          });
+          
+          // Add to DOM
+          document.body.appendChild(configButton);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching config status:', error);
+      });
   </script>
   
   <!-- Load scripts in the correct order -->
