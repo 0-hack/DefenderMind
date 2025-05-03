@@ -609,10 +609,13 @@ function createIncidentListItem(incident) {
     align-items: center;
   `;
   
+  // FIX: Create a specific closure with the current incident
+  const incidentToDelete = incident; // Explicitly capture for this closure
+  
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Pass the incident object directly, not an index
-    confirmDeletion(incident);
+    // Use the captured incident
+    confirmDeletion(incidentToDelete);
   });
   
   actionContainer.appendChild(editBtn);
@@ -629,7 +632,6 @@ function createIncidentListItem(incident) {
   
   return item;
 }
-
 // Save the current incident
 function saveIncident() {
   // Validate first
@@ -700,12 +702,16 @@ function saveIncident() {
   return true;
 }
 
-// Confirm deletion of an incident - now takes the incident object, not an index
+// Confirm deletion of an incident
 function confirmDeletion(incident) {
+  // Log the incident we're trying to delete for debugging
+  console.log(`Attempting to delete: "${incident.title}" (Node: ${incident.index})`);
+  
+  // Create confirmation with the exact incident title
   if (confirm(`Are you sure you want to delete "${incident.title}"? This cannot be undone.`)) {
     console.log(`Deleting incident: "${incident.title}" (node index: ${incident.index})`);
     
-    // Find the actual index in the array by matching the incident object properties
+    // Find the incident in the array by matching both title and index for reliability
     const arrayIndex = incidentsData.findIndex(inc => 
       inc.title === incident.title && inc.index === incident.index
     );
