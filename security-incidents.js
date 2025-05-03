@@ -1144,7 +1144,7 @@ function navigateToStep(stepRef, targetIndex, targetStep) {
   }
 }
 
-// Close incident panel with improved camera reset
+// Close incident panel with improved camera reset and label restoration
 function closeIncidentPanel() {
   // Begin panel closing animation
   incidentPanel.style.opacity = '0';
@@ -1154,15 +1154,26 @@ function closeIncidentPanel() {
   // Disable pointer events immediately
   panelOverlay.style.pointerEvents = 'none';
   
+  // Check if we're on mobile
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   // Ensure z-index is reset
   setTimeout(() => {
     incidentPanel.style.display = 'none';
     panelOverlay.style.display = 'none';
     
-    // Make node labels visible again
+    // Make node labels visible again with special handling for mobile
     nodeLabels.forEach(label => {
-      if (label.style.visibility !== 'hidden') {
-        label.style.display = 'block';
+      if (isMobile) {
+        // On mobile, restore previous visibility based on stored state
+        if (label.dataset.wasVisible === 'true') {
+          label.style.display = 'block';
+        }
+      } else {
+        // On desktop, restore all non-hidden labels
+        if (label.style.visibility !== 'hidden') {
+          label.style.display = 'block';
+        }
       }
     });
     
@@ -1574,6 +1585,7 @@ function updateNodeLabels(camera) {
 // Set up interactions with priority handling for overlapping nodes
 function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
   let hoveredNode = null;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   function updateTooltip(e) {
     raycaster.setFromCamera(mouse, camera);
@@ -1609,16 +1621,22 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
           hitNode.userData.label.classList.add('active');
         }
         
-        tooltip.style.display = 'block';
-        tooltip.textContent = 'Click for details';
-        tooltip.style.left = `${e.clientX + 10}px`;
-        tooltip.style.top = `${e.clientY + 10}px`;
+        // Only show tooltip on desktop
+        if (!isMobile) {
+          tooltip.style.display = 'block';
+          tooltip.textContent = 'Click for details';
+          tooltip.style.left = `${e.clientX + 10}px`;
+          tooltip.style.top = `${e.clientY + 10}px`;
+        }
         return;
       }
     }
     
     hoveredNode = null;
-    tooltip.style.display = 'none';
+    // Only hide tooltip on desktop
+    if (!isMobile) {
+      tooltip.style.display = 'none';
+    }
   }
   
   function onClick(e) {
@@ -1628,8 +1646,6 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
     raycaster.setFromCamera(mouse, camera);
     
     // Adjust the raycaster threshold for better node detection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    // Use a larger threshold on initial load to make nodes easier to click
     const raycasterThreshold = isMobile ? 0.04 : 0.02; // Increased thresholds
     
     // Set threshold for raycaster if it exists
@@ -1685,12 +1701,26 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
       
       if (hitNode.userData.isIncidentNode && hitNode.userData.incidentData) {
         e.stopPropagation();
-        tooltip.style.display = 'none';
         
-        // Hide all labels when showing panel
-        nodeLabels.forEach(label => {
-          label.style.display = 'none';
-        });
+        // Hide tooltip if visible
+        if (tooltip) {
+          tooltip.style.display = 'none';
+        }
+        
+        // Store visibility state of labels for later restoration on mobile
+        if (isMobile) {
+          nodeLabels.forEach(label => {
+            // Store current visibility state as a data attribute
+            label.dataset.wasVisible = (label.style.display !== 'none');
+            // Only temporarily hide labels on mobile
+            label.style.display = 'none';
+          });
+        } else {
+          // On desktop, simply hide all labels
+          nodeLabels.forEach(label => {
+            label.style.display = 'none';
+          });
+        }
         
         // Show panel with higher z-index to overlay everything
         showIncidentPanel(hitNode.userData.incidentData);
