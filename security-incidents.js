@@ -1627,24 +1627,57 @@ function setupIncidentInteractions(raycaster, mouse, camera, brainNodes) {
     
     raycaster.setFromCamera(mouse, camera);
     
-    // First try to click only incident nodes with a slightly larger threshold for mobile
+    // Adjust the raycaster threshold for better node detection
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const raycasterThreshold = isMobile ? 0.03 : 0.01; // Larger threshold on mobile
+    // Use a larger threshold on initial load to make nodes easier to click
+    const raycasterThreshold = isMobile ? 0.04 : 0.02; // Increased thresholds
     
-    // Set threshold for Points if it exists
-    if (raycaster.params && raycaster.params.Points) {
-      raycaster.params.Points.threshold = raycasterThreshold;
+    // Set threshold for raycaster if it exists
+    if (raycaster.params) {
+      if (raycaster.params.Points) {
+        raycaster.params.Points.threshold = raycasterThreshold;
+      }
+      // Set Line threshold if it exists
+      if (raycaster.params.Line) {
+        raycaster.params.Line.threshold = raycasterThreshold;
+      }
+      // Set Mesh threshold if it exists
+      if (raycaster.params.Mesh) {
+        raycaster.params.Mesh.threshold = raycasterThreshold;
+      }
     }
     
-    const incidentNodes = brainNodes
+    // Use a larger near value for the raycaster to prevent clipping of near objects
+    raycaster.near = 0.1;
+    raycaster.far = 1000;
+    
+    // Enhanced detection: Sort nodes by distance to camera (front to back)
+    const sortedIncidentNodes = brainNodes
       .filter(n => n.mesh && n.mesh.userData.isIncidentNode)
+      .sort((a, b) => {
+        // Calculate distance to camera
+        const distA = camera.position.distanceTo(a.mesh.position);
+        const distB = camera.position.distanceTo(b.mesh.position);
+        return distA - distB; // Sort front-to-back
+      })
       .map(n => n.mesh);
     
-    let intersects = raycaster.intersectObjects(incidentNodes);
+    // First try incident nodes
+    let intersects = raycaster.intersectObjects(sortedIncidentNodes);
     
     // If no incident nodes were hit, check all nodes
     if (intersects.length === 0) {
-      intersects = raycaster.intersectObjects(brainNodes.map(n => n.mesh));
+      const sortedAllNodes = brainNodes
+        .sort((a, b) => {
+          if (!a.mesh || !b.mesh) return 0;
+          const distA = camera.position.distanceTo(a.mesh.position);
+          const distB = camera.position.distanceTo(b.mesh.position);
+          return distA - distB;
+        })
+        .map(n => n.mesh)
+        .filter(mesh => mesh); // Filter out undefined meshes
+      
+      intersects = raycaster.intersectObjects(sortedAllNodes);
     }
     
     if (intersects.length > 0) {
