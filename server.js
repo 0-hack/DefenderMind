@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname)));
 
 // Configuration options
 const disableConfig = process.env.DISABLE_CONFIG === 'true';
@@ -21,6 +20,16 @@ app.get('/config-status', (req, res) => {
     disableConfig: disableConfig
   });
 });
+
+// If configuration is disabled, redirect config.html to index.html
+if (disableConfig) {
+  app.get('/config.html', (req, res) => {
+    res.redirect('/index.html');
+  });
+}
+
+// Static file serving - comes after the config.html redirect for correct precedence
+app.use(express.static(path.join(__dirname)));
 
 // Data paths
 const dataDir = path.join(__dirname, 'data');
@@ -871,13 +880,6 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
-
-// If configuration is disabled, redirect config.html to index.html
-if (disableConfig) {
-  app.get('/config.html', (req, res) => {
-    res.redirect('/index.html');
-  });
-}
 
 // Start server
 app.listen(PORT, () => {
