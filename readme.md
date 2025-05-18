@@ -3,10 +3,15 @@
 Defender Mind is an interactive 3D visualization platform for security incidents with integrated configuration and management capabilities.
 
 Visit https://mind.defender.zone to experience.
+![Alt Text](https://github.com/0-hack/DefenderMind/blob/main/DefenderMind.png)
 
 ## Overview
 
 This application provides a visually engaging way to display, manage, and respond to security incidents through an interactive neural network visualization. Security incidents are represented as special nodes within a 3D brain-like network, with complete response playbooks that can be displayed when selected.
+
+## Tested on RackNerd VPS
+Support my work by buying a VPS from RackNerd at https://my.racknerd.com/aff.php?aff=12799 to keep my project going.
+OR you may also buy me a coffee over https://buymeacoffee.com/zerohack
 
 ## Quick Start with Docker
 
